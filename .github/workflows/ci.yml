@@ -1,0 +1,66 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  lint-and-test:
+    name: Lint & Test (PHP ${{ matrix.php }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        php: ['8.1', '8.2', '8.3']
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, mbstring, json
+          coverage: none
+
+      - name: Validate composer.json
+        run: composer validate --no-check-all --no-check-publish
+
+      - name: Lint all PHP files (php -l)
+        run: |
+          set -e
+          find . -path ./vendor -prune -o -name "*.php" -print \
+            | xargs -n1 php -l
+
+      - name: Run test suite
+        run: php tests/run.php
+
+      - name: Smoke test built-in server
+        run: |
+          set -e
+          mkdir -p var/geocache var/ratelimit
+          php -S 127.0.0.1:8000 -t public >/tmp/php-server.log 2>&1 &
+          SERVER_PID=$!
+          for i in $(seq 1 10); do
+            if curl -sf http://127.0.0.1:8000/index.php > /dev/null; then
+              echo "Server responded OK"
+              break
+            fi
+            if [ "$i" -eq 10 ]; then
+              echo "Server did not respond in time"
+              cat /tmp/php-server.log
+              kill "$SERVER_PID" || true
+              exit 1
+            fi
+            sleep 1
+          done
+          kill "$SERVER_PID" || true
+
+      - name: Composer install (no runtime deps, just to generate lock file)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Composer audit
+        run: composer audit --no-dev

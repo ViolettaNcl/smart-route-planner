@@ -1,0 +1,28 @@
+# Не тащим в образ то, что не нужно для работы приложения в контейнере.
+
+.git
+.github
+.gitignore
+
+# Тесты и CI не нужны внутри рантайм-образа — прогоняются в CI до сборки,
+# и в самом контейнере им нечего делать (нет смысла раздувать образ).
+tests/
+docs/
+
+# Локальные секреты — если вдруг лежат рядом на диске у разработчика,
+# не должны случайно попасть в слой образа.
+config.local.php
+
+# Файлы, которые генерируются в рантайме (см. var/.gitignore) — образ
+# создаёт var/geocache и var/ratelimit сам (см. Dockerfile), а
+# volume в docker-compose.yml их всё равно перекроет при монтировании.
+var/geocache/*
+var/ratelimit/*
+var/ab_stats.json
+!var/geocache/.gitkeep
+!var/ratelimit/.gitkeep
+
+vendor/
+node_modules/
+*.md
+!README.md

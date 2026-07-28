@@ -1,0 +1,27 @@
+# --- Секреты ---
+.env
+config.local.php
+
+# --- Зависимости (в проекте нет обязательных runtime-пакетов, но composer
+# может создать эту папку локально) ---
+/vendor/
+/node_modules/
+
+# --- Рантайм-данные: кэш геокодера, состояние rate limiter'а, статистика
+# A/B-теста и дообученные веса модели. Не тащим в git — пересоздаются сами
+# при первом запуске (см. FileCache::__construct / RateLimiter::__construct) ---
+/var/geocache/*
+/var/ratelimit/*
+/var/ab_stats.json
+!/var/geocache/.gitkeep
+!/var/ratelimit/.gitkeep
+
+# --- IDE / ОС-мусор ---
+.idea/
+.vscode/
+*.DS_Store
+Thumbs.db
+
+# --- Composer lock — держите закоммиченным, если хотите воспроизводимые
+# сборки в CI; раскомментируйте, если сознательно не хотите его версионировать
+# composer.lock

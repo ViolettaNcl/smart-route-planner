@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    ports:
+      # ${PORT:-8080} — снаружи можно переопределить порт через .env
+      # (например, на VPS, где 80 уже занят другим сайтом), внутри
+      # контейнера Apache всегда слушает 80.
+      - "${PORT:-8080}:80"
+    volumes:
+      # var/ монтируем как volume, чтобы geocode-кэш, состояние rate
+      # limiter'а и веса модели (после "живого" дообучения через
+      # api/learn.php) переживали пересборку/перезапуск контейнера, а не
+      # терялись каждый раз вместе с временным слоем образа.
+      - ./var:/var/www/html/var
+    environment:
+      # Не обязательны — без них AI-ассистент поездки работает в честном
+      # rule-based fallback-режиме (см. src/AI/TripAssistantService.php).
+      # Задаются через .env файл рядом (см. .env.example) или напрямую
+      # через переменные окружения хоста при запуске docker compose.
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - AI_MODEL_ANTHROPIC=${AI_MODEL_ANTHROPIC:-}
+      - AI_MODEL_OPENAI=${AI_MODEL_OPENAI:-}
+    restart: unless-stopped
+    healthcheck:
+      # Без health.php-эндпоинта (его пока нет в проекте) и без отдельно
+      # устанавливаемого curl-бинарника в образе — проверяем через PHP CLI,
+      # который и так есть в php:8.3-apache. index.php всегда отвечает 200,
+      # даже без введённых городов (это просто форма).
+      test: ["CMD", "php", "-r", "exit(@file_get_contents('http://localhost/index.php') === false ? 1 : 0);"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
