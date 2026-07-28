@@ -5,6 +5,10 @@
 ### Веб-калькулятор маршрутов с TSP-оптимизацией, обученной ML-моделью и интерактивной картой
 
 <p>
+  <a href="https://smart-route-planner-wiwk.onrender.com"><img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square&logo=render&logoColor=white" alt="Live demo"></a>
+</p>
+
+<p>
   <img src="https://github.com/violettancl/smart-route-planner/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/PHP-8.1+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.1+">
@@ -20,6 +24,9 @@
 
 **🌐 Интерфейс полностью на двух языках — 🇷🇺 русский и 🇬🇧 английский**, переключается на
 лету одной кнопкой, без перезагрузки страницы, выбор запоминается между визитами.
+
+**🚀 [Живое демо: smart-route-planner-wiwk.onrender.com](https://smart-route-planner-wiwk.onrender.com)**
+(бесплатный тариф — первый заход после простоя занимает 30–50 секунд, дальше работает быстро)
 
 </div>
 
@@ -138,11 +145,22 @@
   на каждый push/PR: `php -l` по всем файлам, полный прогон тестов на
   PHP 8.1/8.2/8.3 (матрица), smoke-тест поднятия сайта на встроенном
   сервере, `composer audit`
+- 🐳 **Автосборка Docker-образа** ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml)) —
+  при каждом пуше в `main` образ собирается и публикуется в GitHub Container
+  Registry (`ghcr.io`)
+- 🏷️ **Авто-релизы** ([`.github/workflows/release.yml`](.github/workflows/release.yml)) —
+  при пуше тега вида `v1.0.0` GitHub сам создаёт релиз со списком изменений,
+  собранным из коммитов
+- 🔄 **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)) —
+  еженедельно проверяет обновления версий GitHub Actions, используемых в CI
 
 ## 🚀 Быстрый старт
 
-Проекту **не нужна база данных** и не обязателен Composer — только PHP.
-Обученная модель уже включена в репозиторий (`src/ML/model_weights.json`),
+Проще всего — открыть готовое **[живое демо](https://smart-route-planner-wiwk.onrender.com)**,
+установка не нужна.
+
+Для локального запуска проекту **не нужна база данных** и не обязателен Composer —
+только PHP. Обученная модель уже включена в репозиторий (`src/ML/mlp_weights.json`),
 переобучать её перед первым запуском не нужно.
 
 ```bash
@@ -196,8 +214,8 @@ VPS — подробнее в [`docs/setup_guide.md`](docs/setup_guide.md).
 | Frontend | Vanilla JS (fetch API), Leaflet.js, Chart.js, CSS |
 | Тестирование | Собственный лёгкий test-runner (без внешних зависимостей); HTTP-интеграционные тесты через `php -S` |
 | Rate limiting | Token bucket с нуля (`App\Http\RateLimiter`), файловое хранилище с `flock` |
-| CI/CD | GitHub Actions — lint + тесты на PHP 8.1/8.2/8.3, smoke-тест сервера, `composer audit` |
-| Деплой | Docker + docker-compose (образ на `php:8.3-apache`), либо обычный shared-хостинг/XAMPP без Docker вообще |
+| CI/CD | GitHub Actions — lint + тесты на PHP 8.1/8.2/8.3, smoke-тест сервера, `composer audit`, автосборка Docker-образа, авто-релизы, Dependabot |
+| Деплой | Docker + docker-compose (образ на `php:8.3-apache`); [живое демо на Render](https://smart-route-planner-wiwk.onrender.com); либо обычный shared-хостинг/XAMPP без Docker вообще |
 
 ## 📚 Документация
 
@@ -271,6 +289,10 @@ rate limiter (token bucket: разные клиенты, пополнение в
   примерно заканчивается разумный день вождения», а не бронирование отеля.
   Кластеризация всегда учитывает исходный порядок точек маршрута (день не
   может «прыгнуть» назад) — подробнее см. докблок `App\ML\KMeansDaySplitter`.
+- **Бесплатный тариф Render** (живое демо) засыпает после 15 минут простоя —
+  первый заход после сна занимает 30–50 секунд; также не даёт постоянный
+  диск, поэтому кэш геокодирования и статистика A/B-теста обнуляются при
+  каждом новом деплое (сам расчёт маршрута это не ломает).
 
 ## 📄 Лицензия
 
