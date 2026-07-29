@@ -11,14 +11,21 @@
  * отдавать устаревший кэшированный ответ.
  */
 
-const CACHE_VERSION = 'srp-shell-v1';
+const CACHE_VERSION = 'srp-shell-v3';
 
 const SHELL_ASSETS = [
     './',
     './index.php',
     './assets/css/route.css',
     './assets/js/app.js',
+    './assets/js/ui.js',
     './assets/js/i18n.js',
+    './assets/js/ml_boundary.js',
+    './assets/icons/logo-source.svg',
+    './assets/icons/favicon.ico',
+    './assets/icons/favicon-16.png',
+    './assets/icons/favicon-32.png',
+    './assets/icons/apple-touch-icon.png',
     './assets/icons/icon-192.png',
     './assets/icons/icon-512.png',
     './manifest.webmanifest',

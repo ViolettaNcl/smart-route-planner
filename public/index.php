@@ -26,8 +26,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="RoutePlanner">
-    <link rel="apple-touch-icon" href="assets/icons/icon-192.png">
-    <link rel="icon" href="assets/icons/icon-192.png" type="image/png">
+    <link rel="apple-touch-icon" href="assets/icons/apple-touch-icon.png">
+    <link rel="icon" href="assets/icons/logo-source.svg" type="image/svg+xml">
+    <link rel="icon" href="assets/icons/favicon.ico" sizes="any">
+    <link rel="icon" href="assets/icons/favicon-32.png" type="image/png" sizes="32x32">
+    <link rel="icon" href="assets/icons/favicon-16.png" type="image/png" sizes="16x16">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -42,7 +45,31 @@
 
 <div class="container">
     <div class="top-bar">
-        <h1 data-i18n="heading">🚗 Smart Route Planner</h1>
+        <h1>
+            <span class="logo-mark" aria-hidden="true">
+                <svg viewBox="0 0 40 40" width="34" height="34" role="img">
+                    <defs>
+                        <linearGradient id="logoGrad" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stop-color="#c9b8ff" />
+                            <stop offset="55%" stop-color="#8b5cf6" />
+                            <stop offset="100%" stop-color="#6425c9" />
+                        </linearGradient>
+                    </defs>
+                    <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="url(#logoGrad)" />
+                    <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="none" stroke="rgba(255,255,255,0.25)" stroke-width="1" />
+                    <path d="M8.5 28.5 C 13 20, 15 26, 19.5 19 S 27 11, 31.5 12.5"
+                        fill="none" stroke="rgba(255,255,255,0.92)" stroke-width="2.4"
+                        stroke-linecap="round" stroke-dasharray="0.4 5.6" />
+                    <circle cx="8.5" cy="28.5" r="2.6" fill="#ffffff" />
+                    <circle cx="31.5" cy="12.5" r="3.6" fill="#ffffff" />
+                    <circle cx="31.5" cy="12.5" r="3.6" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.55">
+                        <animate attributeName="r" values="3.6;6;3.6" dur="2.4s" repeatCount="indefinite" />
+                        <animate attributeName="opacity" values="0.55;0;0.55" dur="2.4s" repeatCount="indefinite" />
+                    </circle>
+                </svg>
+            </span>
+            <span data-i18n="heading">Smart Route Planner</span>
+        </h1>
         <div class="top-bar-controls">
             <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Theme switch">
                 <span class="theme-toggle-icon">🌙</span>

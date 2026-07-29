@@ -13,7 +13,7 @@
 const I18N = {
     ru: {
         pageTitle: 'Smart Route Planner',
-        heading: '🚗 Smart Route Planner',
+        heading: 'Smart Route Planner',
         pointsLabel: 'Введите точки через «;»',
         pointsPlaceholder: 'Например: Волгоград, Россия;Ростов-на-Дону, Россия;Воронеж, Россия;Москва, Россия',
         submitIdle: 'Рассчитать маршрут',
@@ -166,7 +166,7 @@ const I18N = {
     },
     en: {
         pageTitle: 'Smart Route Planner',
-        heading: '🚗 Smart Route Planner',
+        heading: 'Smart Route Planner',
         pointsLabel: "Enter stops separated by ';'",
         pointsPlaceholder: 'e.g.: Volgograd, Russia;Rostov-on-Don, Russia;Voronezh, Russia;Moscow, Russia',
         submitIdle: 'Calculate route',

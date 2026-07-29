@@ -50,6 +50,11 @@ function setTheme(theme) {
     if (typeof window.setMapTileTheme === 'function') {
         window.setMapTileTheme(normalized);
     }
+
+    // Аналогично перекрашиваем уже открытую карту решений модели (ось/легенда/точки).
+    if (typeof window.refreshBoundaryChartTheme === 'function') {
+        window.refreshBoundaryChartTheme();
+    }
 }
 
 function initTheme() {

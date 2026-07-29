@@ -12,16 +12,37 @@
  */
 
 const BOUNDARY_COLORS = {
-    walk: { fill: 'rgba(82, 215, 136, 0.35)', solid: '#52d788' },
-    car: { fill: 'rgba(245, 166, 35, 0.35)', solid: '#f5a623' },
-    bus: { fill: 'rgba(79, 209, 197, 0.35)', solid: '#4fd1c5' },
+    walk: { fill: 'rgba(82, 215, 136, 0.4)', solid: '#52d788' },
+    car: { fill: 'rgba(245, 166, 35, 0.4)', solid: '#f5a623' },
+    bus: { fill: 'rgba(79, 209, 197, 0.4)', solid: '#4fd1c5' },
 };
 
-const CHART_MUTED = '#8b93a3';
-const CHART_GRID = 'rgba(69, 78, 95, 0.35)';
+function chartMutedColor() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? '#5b6474' : '#8b93a3';
+}
+
+function chartGridColor() {
+    return document.documentElement.getAttribute('data-theme') === 'light'
+        ? 'rgba(199, 205, 216, 0.6)'
+        : 'rgba(69, 78, 95, 0.35)';
+}
+
+function chartSampleBorderColor() {
+    return document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#14171c';
+}
 
 let boundaryChart = null;
 let boundaryLoaded = false;
+let lastBoundaryData = null;
+
+// Вызывается из ui.js при переключении светлой/тёмной темы: перерисовывает
+// уже загруженную карту решений с теми же данными, но с цветами под новую
+// тему (без повторного похода на сервер).
+window.refreshBoundaryChartTheme = function () {
+    if (lastBoundaryData) {
+        renderBoundaryChart(lastBoundaryData);
+    }
+};
 
 document.addEventListener('DOMContentLoaded', () => {
     const toggleButton = document.getElementById('boundary-toggle');
@@ -120,6 +141,8 @@ function renderBoundaryChart(data) {
         return; // canvas был заменён сообщением об ошибке при предыдущей попытке
     }
 
+    lastBoundaryData = data;
+
     if (boundaryChart) {
         boundaryChart.destroy();
     }
@@ -155,14 +178,19 @@ function renderBoundaryChart(data) {
             isRegion: false,
             data: points,
             backgroundColor: BOUNDARY_COLORS[cls]?.solid || '#8b93a3',
-            borderColor: '#14171c',
-            borderWidth: 1,
+            borderColor: chartSampleBorderColor(),
+            borderWidth: 1.5,
             pointStyle: 'circle',
-            pointRadius: 4,
-            pointHoverRadius: 5,
+            pointRadius: 4.5,
+            pointHoverRadius: 7,
+            pointHoverBorderWidth: 2,
+            pointHoverBorderColor: '#ffffff',
             order: 1,
         });
     });
+
+    const mutedColor = chartMutedColor();
+    const gridColor = chartGridColor();
 
     boundaryChart = new Chart(canvas, {
         type: 'scatter',
@@ -170,23 +198,26 @@ function renderBoundaryChart(data) {
         options: {
             responsive: true,
             maintainAspectRatio: false,
-            animation: false,
+            animation: {
+                duration: 650,
+                easing: 'easeOutQuart',
+            },
             scales: {
                 x: {
                     type: 'logarithmic',
                     min: 0.2,
                     max: 1200,
-                    title: { display: true, text: t('boundaryAxisX'), color: CHART_MUTED },
-                    ticks: { color: CHART_MUTED },
-                    grid: { color: CHART_GRID },
+                    title: { display: true, text: t('boundaryAxisX'), color: mutedColor, font: { family: "'Rajdhani', sans-serif", weight: 600 } },
+                    ticks: { color: mutedColor },
+                    grid: { color: gridColor },
                 },
                 y: {
                     type: 'linear',
                     min: 0,
                     max: 14,
-                    title: { display: true, text: t('boundaryAxisY'), color: CHART_MUTED },
-                    ticks: { stepSize: 2, color: CHART_MUTED },
-                    grid: { color: CHART_GRID },
+                    title: { display: true, text: t('boundaryAxisY'), color: mutedColor, font: { family: "'Rajdhani', sans-serif", weight: 600 } },
+                    ticks: { stepSize: 2, color: mutedColor },
+                    grid: { color: gridColor },
                 },
             },
             plugins: {
@@ -194,12 +225,26 @@ function renderBoundaryChart(data) {
                     position: 'bottom',
                     labels: {
                         filter: (item, chartData) => !chartData.datasets[item.datasetIndex].isRegion,
-                        boxWidth: 12,
-                        font: { size: 11 },
-                        color: CHART_MUTED,
+                        boxWidth: 10,
+                        boxHeight: 10,
+                        useBorderRadius: true,
+                        borderRadius: 3,
+                        font: { size: 11, family: "'Inter', sans-serif" },
+                        color: mutedColor,
+                        padding: 16,
                     },
                 },
                 tooltip: {
+                    backgroundColor: 'rgba(20, 23, 28, 0.94)',
+                    titleColor: '#edeff2',
+                    titleFont: { family: "'Rajdhani', sans-serif", weight: 700 },
+                    bodyColor: '#c7cdd8',
+                    borderColor: 'rgba(79, 209, 197, 0.45)',
+                    borderWidth: 1,
+                    cornerRadius: 8,
+                    padding: 10,
+                    displayColors: true,
+                    boxPadding: 4,
                     callbacks: {
                         label: (ctx) => {
                             const p = ctx.raw;

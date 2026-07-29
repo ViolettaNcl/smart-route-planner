@@ -37,6 +37,22 @@ let poiVisible = false;
 let poiFetchedForRoute = null; // хранит JSON.stringify(coords) маршрута, для которого уже запрашивали POI
 let lastRouteData = null;
 
+// --- цветовой градиент линии маршрута: тил → янтарь → коралл, чтобы трек
+// выглядел ярче и "живее" плоской одноцветной линии ---
+function lerpHexColor(hexA, hexB, t) {
+    const a = hexA.match(/\w\w/g).map((x) => parseInt(x, 16));
+    const b = hexB.match(/\w\w/g).map((x) => parseInt(x, 16));
+    const mix = a.map((c, i) => Math.round(c + (b[i] - c) * t));
+    return '#' + mix.map((c) => c.toString(16).padStart(2, '0')).join('');
+}
+
+function routeGradientColorAt(t) {
+    if (t < 0.5) {
+        return lerpHexColor('#4fd1c5', '#f5a623', t / 0.5);
+    }
+    return lerpHexColor('#f5a623', '#ff7b72', (t - 0.5) / 0.5);
+}
+
 // --- тайлы карты, зависящие от темы интерфейса (см. также ui.js) ---
 let tileLayerRef = null;
 
@@ -467,18 +483,38 @@ function renderMap(coords, labels, routeGeometry) {
     const group = L.featureGroup();
 
     // Маркеры пронумерованы и оформлены так же, как список городов в
-    // сайдбаре (янтарный кружок + моно-номер) — карта и список читаются
-    // как единая система, а не два разных визуальных языка.
+    // сайдбаре (кружок + моно-номер) — карта и список читаются как единая
+    // система. Старт и финиш дополнительно выделены цветом/иконкой и
+    // пульсирующим кольцом (см. CSS), чтобы маршрут читался с первого взгляда.
     coords.forEach((c, i) => {
+        const isStart = i === 0;
+        const isEnd = i === coords.length - 1 && coords.length > 1;
+
+        let badgeClass = 'route-marker-badge';
+        let content = String(i + 1);
+        let size = 26;
+        if (isStart) {
+            badgeClass += ' route-marker-start';
+            content = '🚩';
+            size = 30;
+        } else if (isEnd) {
+            badgeClass += ' route-marker-end';
+            content = '🏁';
+            size = 30;
+        }
+
         const icon = L.divIcon({
-            html: '<span class="route-marker-badge">' + (i + 1) + '</span>',
+            html: '<span class="' + badgeClass + '" style="animation-delay:' + (i * 55) + 'ms">' + content + '</span>',
             className: 'route-marker',
-            iconSize: [26, 26],
-            iconAnchor: [13, 13],
+            iconSize: [size, size],
+            iconAnchor: [size / 2, size / 2],
         });
 
-        L.marker([c.lat, c.lon], { icon })
-            .bindPopup((i + 1) + '. ' + escapeHtml(labels[i]))
+        L.marker([c.lat, c.lon], { icon, riseOnHover: true })
+            .bindPopup(
+                '<div class="route-popup"><span class="route-popup-index">' + (i + 1) +
+                '</span><span class="route-popup-label">' + escapeHtml(labels[i]) + '</span></div>'
+            )
             .addTo(group);
     });
 
@@ -487,16 +523,29 @@ function renderMap(coords, labels, routeGeometry) {
     // если OSRM был недоступен — в обоих случаях это массив [lat, lon].
     const pathLatLngs = routeGeometry.map((p) => Array.isArray(p) ? p : [p.lat, p.lon]);
 
-    // Двойная линия: широкая полупрозрачная подложка ("свечение" GPS-трека)
-    // + узкая пунктирная поверх с CSS-анимацией "бегущей" разметки —
-    // маршрут читается как активный, "живой" трек, а не статичная линия.
-    L.polyline(pathLatLngs, { color: '#4fd1c5', weight: 9, opacity: 0.18 }).addTo(group);
-    L.polyline(pathLatLngs, {
-        color: '#f5a623',
-        weight: 4,
-        dashArray: '10 8',
-        className: 'route-line-animated',
-    }).addTo(group);
+    // Широкая полупрозрачная подложка — мягкое "свечение" GPS-трека.
+    L.polyline(pathLatLngs, { color: '#4fd1c5', weight: 9, opacity: 0.16 }).addTo(group);
+
+    // Сама линия рисуется отрезками с плавно меняющимся цветом
+    // (тил → янтарь → коралл) поверх подложки: маршрут выглядит как единый
+    // яркий "живой" трек, а не плоская одноцветная полоса.
+    const segmentCount = Math.min(24, Math.max(4, pathLatLngs.length - 1));
+    const chunkSize = Math.max(1, Math.ceil((pathLatLngs.length - 1) / segmentCount));
+    for (let s = 0, start = 0; start < pathLatLngs.length - 1; s++, start += chunkSize) {
+        const end = Math.min(pathLatLngs.length - 1, start + chunkSize);
+        const segPoints = pathLatLngs.slice(start, end + 1);
+        if (segPoints.length < 2) {
+            continue;
+        }
+        const t = segmentCount > 1 ? s / (segmentCount - 1) : 0;
+        L.polyline(segPoints, {
+            color: routeGradientColorAt(Math.min(1, t)),
+            weight: 4,
+            dashArray: '10 8',
+            lineCap: 'round',
+            className: 'route-line-animated',
+        }).addTo(group);
+    }
 
     group.addTo(leafletMap);
     routeLayer = group;

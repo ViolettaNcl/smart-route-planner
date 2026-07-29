@@ -23,6 +23,9 @@
     --amber-dim: #c9860f;
     --teal: #4fd1c5;
     --teal-dim: #2f9a90;
+    --purple: #a78bfa;
+    --purple-dim: #8468e0;
+    --purple-soft: rgba(167, 139, 250, 0.14);
 
     --paper: #edeff2;
     --muted: #8b93a3;
@@ -49,23 +52,28 @@
     --shadow-panel: 0 1px 0 rgba(255,255,255,0.03) inset, 0 18px 40px rgba(0,0,0,0.35);
 }
 
-/* --- Светлая тема: та же палитра ролей (asphalt/amber/teal), но инвертированная
-   яркость. Переключается атрибутом data-theme на <html> (см. ui.js) --- */
+/* --- Светлая тема: та же палитра ролей (asphalt/amber/teal), но не просто
+   инвертированная яркость — фон и линии слегка тонированы в лавандовый,
+   перекликаясь с фиолетовым логотипом, вместо плоского нейтрального серого.
+   Переключается атрибутом data-theme на <html> (см. ui.js) --- */
 :root[data-theme="light"] {
-    --bg-deep: #eef0f4;
+    --bg-deep: #f1eefb;
     --bg-panel: #ffffff;
-    --bg-raised: #f4f5f8;
-    --line: #dde1e8;
-    --line-bright: #c7cdd8;
+    --bg-raised: #f7f5fd;
+    --line: #e1dcf5;
+    --line-bright: #ccc3ee;
 
     --amber: #c97a0a;
     --amber-dim: #a3650a;
     --teal: #0e9187;
     --teal-dim: #0b756d;
+    --purple: #7c3aed;
+    --purple-dim: #6425c9;
+    --purple-soft: rgba(124, 58, 237, 0.08);
 
-    --paper: #1b1f26;
-    --muted: #5b6474;
-    --muted-2: #7a8494;
+    --paper: #201b33;
+    --muted: #635f79;
+    --muted-2: #837fa0;
 
     --danger: #c8433a;
     --danger-bg: #fdeceb;
@@ -79,7 +87,7 @@
     --success-bg: #e8f7ee;
     --success-border: #bce6cc;
 
-    --shadow-panel: 0 1px 0 rgba(255,255,255,0.6) inset, 0 14px 32px rgba(30,35,45,0.08);
+    --shadow-panel: 0 1px 0 rgba(255,255,255,0.7) inset, 0 14px 34px rgba(124, 58, 237, 0.10);
 }
 
 * {
@@ -123,12 +131,32 @@ body::after {
     animation: orb-drift-b 26s ease-in-out infinite;
 }
 
+.container::before {
+    content: '';
+    position: fixed;
+    z-index: -1;
+    width: 520px;
+    height: 520px;
+    left: 50%;
+    bottom: -260px;
+    transform: translateX(-50%);
+    border-radius: 50%;
+    filter: blur(100px);
+    pointer-events: none;
+    background: radial-gradient(circle, rgba(167, 139, 250, 0.12), transparent 70%);
+    animation: orb-drift-a 30s ease-in-out infinite reverse;
+}
+
 :root[data-theme="light"] body::before {
-    background: radial-gradient(circle, rgba(14, 145, 135, 0.10), transparent 70%);
+    background: radial-gradient(circle, rgba(14, 145, 135, 0.13), transparent 70%);
 }
 
 :root[data-theme="light"] body::after {
-    background: radial-gradient(circle, rgba(201, 122, 10, 0.10), transparent 70%);
+    background: radial-gradient(circle, rgba(201, 122, 10, 0.12), transparent 70%);
+}
+
+:root[data-theme="light"] .container::before {
+    background: radial-gradient(circle, rgba(124, 58, 237, 0.10), transparent 70%);
 }
 
 @keyframes orb-drift-a {
@@ -150,17 +178,32 @@ body::after {
 h1 {
     text-align: center;
     margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
     font-family: var(--font-display);
     font-weight: 700;
     font-size: 32px;
     letter-spacing: 0.01em;
-    background: linear-gradient(120deg, var(--paper) 40%, var(--teal) 70%, var(--amber) 100%);
+    background: linear-gradient(120deg, var(--paper) 35%, var(--purple) 65%, var(--teal) 100%);
     background-size: 200% auto;
     -webkit-background-clip: text;
     background-clip: text;
     -webkit-text-fill-color: transparent;
     color: var(--paper);
     animation: title-sheen 7s ease-in-out infinite;
+}
+
+.logo-mark {
+    display: inline-flex;
+    flex-shrink: 0;
+    filter: drop-shadow(0 4px 14px rgba(124, 58, 237, 0.45));
+    transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.top-bar:hover .logo-mark {
+    transform: rotate(-6deg) scale(1.08);
 }
 
 @keyframes title-sheen {
@@ -181,6 +224,26 @@ h3, h4 {
     position: relative;
     margin-bottom: 20px;
     padding-bottom: 20px;
+}
+
+.top-bar::before {
+    content: '';
+    position: absolute;
+    top: -30px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 360px;
+    height: 140px;
+    background: radial-gradient(ellipse, var(--purple-soft), transparent 72%);
+    filter: blur(6px);
+    pointer-events: none;
+    z-index: -1;
+    animation: logo-glow-pulse 4s ease-in-out infinite;
+}
+
+@keyframes logo-glow-pulse {
+    0%, 100% { opacity: 0.7; }
+    50% { opacity: 1; }
 }
 
 .top-bar::after {
@@ -233,8 +296,8 @@ h3, h4 {
 }
 
 .theme-toggle:hover {
-    border-color: var(--teal-dim);
-    box-shadow: 0 0 0 3px rgba(79, 209, 197, 0.12);
+    border-color: var(--purple-dim);
+    box-shadow: 0 0 0 3px var(--purple-soft);
 }
 
 .theme-toggle:active {
@@ -307,15 +370,15 @@ h3, h4 {
 }
 
 .panel::before {
-    /* декоративный акцент-полоса сверху панели, перекликается с амбер/тил
-       палитрой остального интерфейса */
+    /* декоративный акцент-полоса сверху панели: тил → фиолетовый (цвет
+       логотипа) → янтарь — перекликается с остальной палитрой интерфейса */
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, var(--teal) 0%, var(--amber) 100%);
+    background: linear-gradient(90deg, var(--teal) 0%, var(--purple) 50%, var(--amber) 100%);
     opacity: 0.85;
 }
 
@@ -459,7 +522,8 @@ button:active:not(:disabled) {
 
 .highlight-item:hover .highlight-icon {
     transform: scale(1.1);
-    border-color: var(--teal);
+    border-color: var(--purple);
+    box-shadow: 0 0 0 3px var(--bg-panel), 0 0 12px var(--purple-soft);
 }
 
 .highlight-text strong {
@@ -1023,17 +1087,24 @@ button:disabled {
 
 .boundary-section .btn {
     width: auto;
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     border: 1px solid var(--line);
     background: var(--bg-panel);
     color: var(--paper);
     cursor: pointer;
     font-family: var(--font-display);
-    padding: 10px 18px;
+    font-weight: 600;
+    padding: 11px 20px;
+    border-radius: 999px;
+    transition: border-color 0.2s, box-shadow 0.2s, transform 0.15s;
 }
 
 .boundary-section .btn:hover {
     border-color: var(--teal-dim);
+    box-shadow: 0 0 0 4px rgba(79, 209, 197, 0.12);
+    transform: translateY(-1px);
 }
 
 .boundary-panel {
@@ -1042,7 +1113,26 @@ button:disabled {
     border: 1px solid var(--line);
     border-radius: var(--radius);
     box-shadow: var(--shadow-panel);
-    padding: 18px 20px;
+    padding: 22px 24px;
+    position: relative;
+    overflow: hidden;
+    animation: panel-rise-in 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.boundary-panel::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--teal) 0%, var(--success) 33%, var(--amber) 66%, var(--danger) 100%);
+    opacity: 0.85;
+}
+
+@keyframes panel-rise-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .boundary-panel h3 {
@@ -1068,22 +1158,54 @@ button:disabled {
 
 .boundary-controls select {
     margin-left: 6px;
-    padding: 4px 8px;
-    border-radius: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
     border: 1px solid var(--line);
     background: var(--bg-raised);
     color: var(--paper);
-    font-family: inherit;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 12.5px;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.boundary-controls select:hover {
+    border-color: var(--teal-dim);
 }
 
 .boundary-chart-wrap {
     position: relative;
-    height: 360px;
+    height: 380px;
+    padding: 14px;
+    border-radius: var(--radius-sm);
+    background:
+        radial-gradient(ellipse 480px 260px at 20% 15%, rgba(79, 209, 197, 0.08), transparent 70%),
+        radial-gradient(ellipse 480px 260px at 85% 85%, rgba(245, 166, 35, 0.07), transparent 70%),
+        var(--bg-raised);
+    border: 1px solid var(--line);
     transition: opacity 0.2s;
 }
 
 .boundary-chart-wrap.loading {
     opacity: 0.45;
+}
+
+.boundary-chart-wrap.loading::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: 3px solid var(--line);
+    border-top-color: var(--teal);
+    animation: boundary-spin 0.8s linear infinite;
+}
+
+@keyframes boundary-spin {
+    to { transform: rotate(360deg); }
 }
 
 .boundary-error {
@@ -1306,7 +1428,7 @@ button:disabled {
     left: 0;
     right: 0;
     height: 3px;
-    background: linear-gradient(90deg, var(--amber) 0%, var(--teal) 100%);
+    background: linear-gradient(90deg, var(--amber) 0%, var(--purple) 50%, var(--teal) 100%);
     opacity: 0.85;
     z-index: 10;
 }
@@ -1364,10 +1486,40 @@ button:disabled {
 
 .leaflet-popup-content-wrapper {
     border: 1px solid var(--line);
-    border-radius: 8px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.35);
 }
 
-/* --- Маркеры маршрута на карте: те же номерные жетоны, что и в списке слева --- */
+.route-popup {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-body);
+}
+
+.route-popup-index {
+    flex-shrink: 0;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--amber);
+    color: var(--bg-deep);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    font-size: 11px;
+}
+
+.route-popup-label {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+/* --- Маркеры маршрута на карте: те же номерные жетоны, что и в списке слева.
+   Старт и финиш выделены отдельным цветом/иконкой и пульсирующим кольцом,
+   чтобы маршрут читался мгновенно — не нужно приглядываться к номерам. --- */
 .route-marker-badge {
     display: flex;
     align-items: center;
@@ -1375,12 +1527,60 @@ button:disabled {
     width: 26px;
     height: 26px;
     border-radius: 50%;
-    background: var(--amber);
+    background: linear-gradient(145deg, #ffc55c, var(--amber));
     color: var(--bg-deep);
     font-family: var(--font-mono);
     font-weight: 700;
     font-size: 12px;
-    box-shadow: 0 0 0 3px var(--bg-deep), 0 2px 6px rgba(0,0,0,0.5);
+    box-shadow: 0 0 0 3px var(--bg-deep), 0 2px 8px rgba(0,0,0,0.5);
+    animation: marker-drop-in 0.45s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes marker-drop-in {
+    from { opacity: 0; transform: translateY(-14px) scale(0.5); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.route-marker-badge.route-marker-start,
+.route-marker-badge.route-marker-end {
+    width: 30px;
+    height: 30px;
+    font-size: 14px;
+    position: relative;
+}
+
+.route-marker-badge.route-marker-start {
+    background: linear-gradient(145deg, #7ef0c2, var(--success));
+}
+
+.route-marker-badge.route-marker-end {
+    background: linear-gradient(145deg, #ff9b8f, var(--danger));
+}
+
+.route-marker-badge.route-marker-start::after,
+.route-marker-badge.route-marker-end::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    opacity: 0;
+    animation: marker-pulse-ring 2.2s ease-out infinite;
+}
+
+.route-marker-badge.route-marker-start::after {
+    color: var(--success);
+    animation-delay: 0.3s;
+}
+
+.route-marker-badge.route-marker-end::after {
+    color: var(--danger);
+}
+
+@keyframes marker-pulse-ring {
+    0% { opacity: 0.6; transform: scale(0.75); }
+    75% { opacity: 0; transform: scale(1.35); }
+    100% { opacity: 0; transform: scale(1.35); }
 }
 
 .poi-marker {
@@ -1397,11 +1597,18 @@ button:disabled {
     height: 26px;
     line-height: 24px;
     box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    transition: transform 0.15s;
 }
 
-/* --- "Бегущая" пунктирная линия маршрута — трек читается как активный --- */
+.poi-marker:hover .poi-marker-icon {
+    transform: scale(1.15);
+}
+
+/* --- "Бегущая" пунктирная линия маршрута — трек читается как активный,
+   с мягким цветным свечением, повторяющим текущий сегмент градиента --- */
 .route-line-animated {
     animation: route-dash-flow 0.9s linear infinite;
+    filter: drop-shadow(0 0 4px rgba(245, 166, 35, 0.55));
 }
 
 @keyframes route-dash-flow {
