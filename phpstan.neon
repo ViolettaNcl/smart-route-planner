@@ -1,0 +1,9 @@
+parameters:
+    level: 6
+    paths:
+        - src
+        - bin
+        - public
+    excludePaths:
+        - public/assets/*
+    tmpDir: var/phpstan-cache

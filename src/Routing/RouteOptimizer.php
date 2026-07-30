@@ -40,6 +40,8 @@ class RouteOptimizer
     }
 
     /**
+     * @param string[] $labels
+     * @param array<string, array{lat: float, lon: float}> $coords
      * @return string[]
      */
     private function nearestNeighborOrder(array $labels, array $coords): array
@@ -70,6 +72,7 @@ class RouteOptimizer
 
     /**
      * @param string[] $route
+     * @param array<string, array{lat: float, lon: float}> $coords
      * @return string[]
      */
     private function twoOptImprove(array $route, array $coords, int $maxPasses = 25): array
@@ -101,6 +104,9 @@ class RouteOptimizer
     /**
      * Насколько изменится длина маршрута, если развернуть участок [i..k].
      * Отрицательное значение — маршрут станет короче.
+     *
+     * @param string[] $route
+     * @param array<string, array{lat: float, lon: float}> $coords
      */
     private function reversalDelta(array $route, array $coords, int $i, int $k): float
     {
@@ -116,6 +122,7 @@ class RouteOptimizer
     }
 
     /**
+     * @param string[] $route
      * @return string[]
      */
     private function reverseSegment(array $route, int $i, int $k): array

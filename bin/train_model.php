@@ -53,8 +53,8 @@ $toFeaturesAndLabels = function (array $rows): array {
 [$trainX, $trainY] = $toFeaturesAndLabels($trainRows);
 [$valX, $valY] = $toFeaturesAndLabels($valRows);
 
-echo "Обучающая выборка: " . count($trainRows) . " примеров\n";
-echo "Валидационная выборка: " . count($valRows) . " примеров\n";
+echo 'Обучающая выборка: ' . count($trainRows) . " примеров\n";
+echo 'Валидационная выборка: ' . count($valRows) . " примеров\n";
 
 // ---------------------------------------------------------------------
 // 1) MLP (нейросеть со скрытым слоем) — основная модель приложения
@@ -123,20 +123,24 @@ echo "Softmax остаётся как baseline/fallback — подробнее �
 
 $evaluator = new ModelEvaluator();
 
+/**
+ * @param array{confusion_matrix: array<string, array<string, int>>, per_class: array<string, array{precision: float, recall: float, f1: float, support: int}>, accuracy: float, macro_f1: float} $evaluation
+ * @param array<int, string> $classes
+ */
 function printEvaluation(string $modelName, array $evaluation, array $classes): void
 {
     echo "\n--- {$modelName}: confusion matrix (строки — истинный класс, столбцы — предсказанный) ---\n";
 
-    printf("  %-8s", '');
+    printf('  %-8s', '');
     foreach ($classes as $c) {
-        printf("%8s", $c);
+        printf('%8s', $c);
     }
     echo "\n";
 
     foreach ($classes as $actual) {
-        printf("  %-8s", $actual);
+        printf('  %-8s', $actual);
         foreach ($classes as $predicted) {
-            printf("%8d", $evaluation['confusion_matrix'][$actual][$predicted]);
+            printf('%8d', $evaluation['confusion_matrix'][$actual][$predicted]);
         }
         echo "\n";
     }
@@ -178,7 +182,7 @@ $cv = $evaluator->kFoldCrossValidate(
     epochs: 800 // меньше, чем в основном обучении — 5 отдельных прогонов, иначе скрипт станет заметно медленнее
 );
 
-echo "  Accuracy по фолдам: " . implode(', ', array_map(fn ($a) => round($a * 100, 1) . '%', $cv['fold_accuracies'])) . "\n";
-echo "  Среднее: " . round($cv['mean_accuracy'] * 100, 1) . "% ± " . round($cv['std_accuracy'] * 100, 1) . "%\n";
+echo '  Accuracy по фолдам: ' . implode(', ', array_map(fn ($a) => round($a * 100, 1) . '%', $cv['fold_accuracies'])) . "\n";
+echo '  Среднее: ' . round($cv['mean_accuracy'] * 100, 1) . '% ± ' . round($cv['std_accuracy'] * 100, 1) . "%\n";
 echo "  (Разброс между фолдами показывает, насколько оценка качества зависит\n";
 echo "   от конкретного разбиения данных — маленький разброс = стабильный результат.)\n";

@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../bootstrap.php';
 
+use App\Http\RateLimitGuard;
 use App\ML\Dataset;
 use App\ML\TransportPredictor;
-use App\Http\RateLimitGuard;
 
 /**
  * "Живое" дообучение модели: пользователь поправляет предсказание ("на

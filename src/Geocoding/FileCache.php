@@ -23,6 +23,7 @@ class FileCache
         }
     }
 
+    /** @return array<string, mixed>|null */
     public function get(string $key): ?array
     {
         $path = $this->pathFor($key);
@@ -37,6 +38,7 @@ class FileCache
         return is_array($data) ? $data : null;
     }
 
+    /** @param array<string, mixed> $value */
     public function set(string $key, array $value): void
     {
         file_put_contents($this->pathFor($key), json_encode($value));

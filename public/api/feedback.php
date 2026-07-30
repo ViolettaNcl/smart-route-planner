@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../bootstrap.php';
 
-use App\ML\ABTestStats;
 use App\Http\RateLimitGuard;
+use App\ML\ABTestStats;
 
 /**
  * A/B-тест MLP vs Softmax: фиксирует "угадала ли модель" для варианта,

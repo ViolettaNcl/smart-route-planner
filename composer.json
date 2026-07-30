@@ -9,9 +9,24 @@
         "ext-json": "*",
         "ext-mbstring": "*"
     },
+    "require-dev": {
+        "phpstan/phpstan": "^2.0",
+        "friendsofphp/php-cs-fixer": "^3.95"
+    },
     "autoload": {
         "psr-4": {
             "App\\": "src/"
         }
+    },
+    "scripts": {
+        "test": "php tests/run.php",
+        "stan": "phpstan analyse -c phpstan.neon",
+        "cs": "php-cs-fixer fix --config=.php-cs-fixer.dist.php",
+        "cs-check": "php-cs-fixer fix --config=.php-cs-fixer.dist.php --dry-run --diff",
+        "check": [
+            "@cs-check",
+            "@stan",
+            "@test"
+        ]
     }
 }

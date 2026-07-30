@@ -62,6 +62,7 @@ class ABTestStats
         return $stats;
     }
 
+    /** @return array<string, array{correct: int, incorrect: int}> */
     private function emptyStats(): array
     {
         return [

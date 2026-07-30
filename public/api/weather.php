@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../bootstrap.php';
 
-use App\Weather\OpenMeteoClient;
 use App\Http\RateLimitGuard;
+use App\Weather\OpenMeteoClient;
 
 /**
  * Погода по точкам маршрута (Open-Meteo, без ключа).

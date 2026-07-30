@@ -1,0 +1,12 @@
+# Нормализуем окончания строк в репозитории на LF независимо от локальной
+# настройки core.autocrlf — без этого файла на Windows git add печатает
+# предупреждения "LF will be replaced by CRLF" на каждый текстовый файл.
+* text=auto eol=lf
+
+# Бинарные файлы — никогда не трогать построчно
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

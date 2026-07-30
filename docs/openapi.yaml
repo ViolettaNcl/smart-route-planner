@@ -1,0 +1,525 @@
+openapi: 3.0.3
+info:
+  title: Smart Route Planner API
+  description: |
+    JSON API маршрутного планировщика: геокодирование, TSP-оптимизация
+    порядка точек, предсказание транспорта (MLP/Softmax), реальная
+    маршрутизация по дорогам (OSRM), AI-совет по поездке, точки интереса,
+    погода, план по дням (K-Means), A/B-тест моделей.
+
+    Все POST-эндпоинты принимают `application/x-www-form-urlencoded`
+    (обычные HTML-формы), а не JSON body — это сознательный выбор для
+    простоты (фронтенд использует `FormData`/`URLSearchParams`, без ручной
+    сериализации). Ответы — всегда JSON.
+
+    Ни один эндпоинт не требует API-ключа для базовой работы; ключи
+    (`ANTHROPIC_API_KEY`/`OPENAI_API_KEY`) нужны только чтобы AI-совет
+    (`/assistant.php`) использовал настоящую LLM вместо честного
+    rule-based fallback.
+  version: "1.1.0"
+  license:
+    name: MIT
+    url: https://github.com/ViolettaNcl/smart-route-planner/blob/main/LICENSE
+  contact:
+    url: https://github.com/ViolettaNcl/smart-route-planner
+
+servers:
+  - url: https://smart-route-planner-wiwk.onrender.com/api
+    description: Живое демо
+  - url: http://localhost:8000/api
+    description: Локальный запуск (php -S)
+
+tags:
+  - name: routing
+    description: Расчёт и планирование маршрута
+  - name: geodata
+    description: Точки интереса, погода, автоподсказки
+  - name: ml
+    description: Объяснимость модели, A/B-тест, живое дообучение
+  - name: ai
+    description: AI-совет по поездке
+  - name: ops
+    description: Здоровье сервиса
+
+paths:
+  /route.php:
+    post:
+      tags: [routing]
+      summary: Рассчитать маршрут
+      description: >
+        Основной эндпоинт: геокодирует города, оптимизирует порядок обхода
+        (Nearest Neighbor + 2-opt), пытается построить реальный маршрут по
+        дорогам через OSRM (с честным откатом на дистанцию по прямой),
+        предсказывает транспорт, считает время/стоимость/CO2.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [points]
+              properties:
+                points:
+                  type: string
+                  description: Города через `;`
+                  example: "Москва, Россия;Санкт-Петербург, Россия"
+                fuel_price_per_liter: { type: number, nullable: true }
+                fuel_consumption_l_100km: { type: number, nullable: true }
+                ticket_price_per_km: { type: number, nullable: true }
+                ticket_base_fare: { type: number, nullable: true }
+                model_variant:
+                  type: string
+                  enum: [mlp, softmax]
+                  nullable: true
+                  description: Форсировать конкретную модель (иначе — случайно 50/50 для A/B-теста)
+      responses:
+        '200':
+          description: Маршрут успешно рассчитан
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean, example: true }
+                  points: { type: array, items: { type: string } }
+                  coords:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties: { lat: { type: number }, lon: { type: number } }
+                  distance_km: { type: number }
+                  routing_source: { type: string, enum: [osrm_road, straight_line] }
+                  route_geometry:
+                    type: array
+                    items: { type: array, items: { type: number }, minItems: 2, maxItems: 2 }
+                  duration:
+                    type: object
+                    properties:
+                      minutes: { type: number }
+                      label: { type: string }
+                      exact: { type: boolean }
+                  stops: { type: integer }
+                  transport:
+                    type: object
+                    properties:
+                      mode: { type: string, enum: [walk, car, bus] }
+                      confidence: { type: number }
+                      model: { type: string, enum: [mlp, softmax] }
+                  cost: { type: object }
+                  emissions: { type: object }
+                  skipped:
+                    type: array
+                    items: { type: string }
+                    description: Города, которые не удалось геокодировать
+                  maps:
+                    type: object
+                    properties:
+                      google: { type: string, format: uri }
+                      yandex: { type: string, format: uri }
+                  calculated_at: { type: string, format: date-time }
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /day_plan.php:
+    post:
+      tags: [routing]
+      summary: Разбить уже рассчитанный маршрут по дням
+      description: >
+        Unsupervised K-Means (метод Ллойда) — балансирует дни по
+        километражу, не переставляя города местами.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [points]
+              properties:
+                points:
+                  type: string
+                  description: "Города через `;`, в уже оптимизированном порядке"
+                days: { type: integer, nullable: true, description: Если не задано — подбирается автоматически }
+      responses:
+        '200':
+          description: План по дням построен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  total_distance_km: { type: number }
+                  days_requested: { type: integer }
+                  days: { type: array, items: { type: object } }
+                  algorithm: { type: string, example: kmeans_1d }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /suggest.php:
+    get:
+      tags: [geodata]
+      summary: Автоподсказки городов
+      description: Прокси к Nominatim (браузер не может сам выставить нужный User-Agent).
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Список подсказок (пустой список при сбое — фича необязательная, не должна ломать форму)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  suggestions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        display_name: { type: string }
+                        lat: { type: number }
+                        lon: { type: number }
+        '429': { $ref: '#/components/responses/RateLimited' }
+
+  /poi.php:
+    post:
+      tags: [geodata]
+      summary: Точки интереса вдоль маршрута
+      description: АЗС/кафе/рестораны/отели через Overpass API, без ключа.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [points]
+              properties:
+                points: { type: string }
+                radius: { type: integer, minimum: 500, maximum: 10000, default: 2000 }
+      responses:
+        '200':
+          description: Точки интереса найдены (по каждому городу отдельным ключом)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  points: { type: object, additionalProperties: { type: array, items: { type: object } } }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /weather.php:
+    post:
+      tags: [geodata]
+      summary: Погода в каждой точке маршрута
+      description: Open-Meteo, без ключа. Предупреждения о дожде/жаре/морозе/грозе.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [points]
+              properties:
+                points: { type: string }
+      responses:
+        '200':
+          description: Прогноз получен
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  forecast:
+                    type: array
+                    items:
+                      type: object
+                      nullable: true
+                      properties:
+                        label: { type: string }
+                        description_ru: { type: string }
+                        icon: { type: string }
+                        warning: { type: boolean }
+                        warning_reason: { type: string, nullable: true }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /assistant.php:
+    post:
+      tags: [ai]
+      summary: AI-совет по поездке
+      description: >
+        LLM (Anthropic/OpenAI, если задан ключ) или честный rule-based
+        fallback без ключа — `narrative.source` показывает, что сработало.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [route]
+              properties:
+                route: { type: string, description: "JSON-строка с результатом /route.php" }
+                weather: { type: string, description: "JSON-строка с результатом /weather.php (необязательно)" }
+      responses:
+        '200':
+          description: Совет сгенерирован
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  narrative:
+                    type: object
+                    properties:
+                      text: { type: string }
+                      source: { type: string, enum: [llm, fallback] }
+                      provider: { type: string, nullable: true, enum: [anthropic, openai, null] }
+                  llm_configured: { type: boolean }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /decision_boundary.php:
+    get:
+      tags: [ml]
+      summary: Карта решений модели (для графика)
+      description: >
+        Сетка предсказаний [дистанция × число точек] для визуализации
+        границы решений (Chart.js на фронтенде).
+      parameters:
+        - name: model
+          in: query
+          required: false
+          schema: { type: string, enum: [mlp, softmax], default: mlp }
+      responses:
+        '200':
+          description: Сетка предсказаний построена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  model: { type: string }
+                  classes: { type: array, items: { type: string } }
+                  stops_slices: { type: array, items: { type: integer } }
+                  grid: { type: array, items: { type: object } }
+                  samples: { type: array, items: { type: object } }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /explain.php:
+    get:
+      tags: [ml]
+      summary: Разбор одного конкретного предсказания
+      description: "\"Почему такой транспорт\" — числовой разбор предсказания модели для одной точки [дистанция, число точек]."
+      parameters:
+        - name: distance_km
+          in: query
+          required: true
+          schema: { type: number }
+        - name: stops
+          in: query
+          required: true
+          schema: { type: integer }
+      responses:
+        '200':
+          description: Объяснение построено
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  model: { type: string, enum: [mlp, softmax] }
+                  explanation: { type: object }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /ab_stats.php:
+    get:
+      tags: [ml]
+      summary: Статистика A/B-теста MLP vs Softmax
+      responses:
+        '200':
+          description: Агрегированная статистика
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  stats:
+                    type: object
+                    additionalProperties:
+                      type: object
+                      properties:
+                        correct: { type: integer }
+                        incorrect: { type: integer }
+                        accuracy: { type: number, nullable: true }
+                        total: { type: integer }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /feedback.php:
+    post:
+      tags: [ml]
+      summary: Отметить, угадала ли модель транспорт
+      description: 👍/👎 от пользователя для варианта модели, назначенного этому визиту в A/B-тесте.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [variant, is_correct]
+              properties:
+                variant: { type: string, enum: [mlp, softmax] }
+                is_correct: { type: string, enum: ['1', '0', 'true', 'false'] }
+      responses:
+        '200':
+          description: Отзыв сохранён, актуальная статистика возвращена
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  stats: { type: object }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /learn.php:
+    post:
+      tags: [ml]
+      summary: Одношаговое дообучение MLP на исправленном примере
+      description: >
+        Пользователь указал правильный transport вместо предсказанного —
+        сервер делает один шаг градиентного спуска и сохраняет обновлённые
+        веса. Работает только для MLP (у Softmax нет этого механизма в UI).
+        **Демо-механика**: веса общие для всех посетителей сайта, это не
+        изолированное состояние пользователя.
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [distance_km, stops, correct_label]
+              properties:
+                distance_km: { type: number }
+                stops: { type: integer }
+                correct_label: { type: string, enum: [walk, car, bus] }
+      responses:
+        '200':
+          description: Шаг дообучения применён (или пропущен, если активна softmax-модель)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+                  applied: { type: boolean }
+                  note: { type: string, nullable: true }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /reset_model.php:
+    post:
+      tags: [ml]
+      summary: Сбросить веса модели к изначально обученным
+      description: Отменяет эффект всех предыдущих вызовов `/learn.php`.
+      responses:
+        '200':
+          description: Веса сброшены
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok: { type: boolean }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /health.php:
+    get:
+      tags: [ops]
+      summary: Health-check
+      description: >
+        Для аптайм-мониторинга и Docker HEALTHCHECK. Не дёргает внешние
+        сервисы (Nominatim/OSRM) — только проверяет веса модели и
+        доступность var/ на запись.
+      responses:
+        '200':
+          description: Сервис здоров
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+        '503':
+          description: Что-то не так (веса модели повреждены или var/ не пишется)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        ok: { type: boolean }
+        checks:
+          type: object
+          properties:
+            model_weights: { type: boolean }
+            var_writable: { type: boolean }
+        php_version: { type: string }
+        timestamp: { type: string, format: date-time }
+
+    ErrorResponse:
+      type: object
+      properties:
+        ok: { type: boolean, example: false }
+        error: { type: string, description: Человекочитаемое сообщение (на русском) }
+        error_code: { type: string, description: Машиночитаемый код для локализации на фронтенде }
+
+  responses:
+    ValidationError:
+      description: Некорректный ввод (например, меньше двух валидных точек маршрута)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    RateLimited:
+      description: Превышен лимит запросов (token bucket)
+      headers:
+        Retry-After:
+          schema: { type: integer }
+          description: Через сколько секунд можно повторить запрос
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/ErrorResponse'
+              - type: object
+                properties:
+                  retry_after_seconds: { type: integer }
+    InternalError:
+      description: Внутренняя ошибка сервера (подробности только в логах, не в ответе)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }

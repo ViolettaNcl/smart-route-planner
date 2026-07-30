@@ -227,6 +227,7 @@ docker compose up --build
 | [`docs/neural_net.md`](docs/neural_net.md) ([EN](docs/neural_net.en.md)) | Устройство модели, обучение, метрики качества |
 | [`docs/business_analysis.md`](docs/business_analysis.md) ([EN](docs/business_analysis.en.md)) | Сценарии использования, бизнес-логика |
 | [`docs/setup_guide.md`](docs/setup_guide.md) ([EN](docs/setup_guide.en.md)) | Установка: XAMPP, Docker или встроенный сервер PHP |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 3.0-спека для всех 13 эндпоинтов `api/*.php` |
 
 ## Тесты
 

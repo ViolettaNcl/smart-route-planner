@@ -27,7 +27,7 @@ class OpenMeteoClient
     private const HOT_TEMP_C = 30.0;
     private const COLD_TEMP_C = -15.0;
 
-    /** @var array<int, array{code: int, min: int, description_ru: string, icon: string}> */
+    /** @var array<int, array{min: int, max: int, description_ru: string, icon: string}> */
     private const WEATHER_CODES = [
         // Диапазоны сгруппированы по семействам кодов WMO (open-meteo использует
         // их как есть, см. https://open-meteo.com/en/docs — раздел WMO Weather codes).

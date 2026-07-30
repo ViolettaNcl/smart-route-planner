@@ -78,6 +78,7 @@ class MLPClassifier implements ClassifierInterface
     /** @var float[] Смещения выходного слоя (по числу классов) */
     private array $b2 = [];
 
+    /** @param string[] $classes */
     public function __construct(array $classes, int $hiddenSize = 8, int $seed = 42)
     {
         $this->classes = $classes;

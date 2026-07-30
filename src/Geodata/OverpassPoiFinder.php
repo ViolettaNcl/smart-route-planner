@@ -94,6 +94,10 @@ class OverpassPoiFinder
         return $results;
     }
 
+    /**
+     * @param array<string, string> $tags
+     * @return array{category: string, label_ru: string, icon: string}|null
+     */
     private function categoryFor(array $tags): ?array
     {
         foreach (self::CATEGORIES as $tagExpr => $info) {
@@ -115,13 +119,13 @@ class OverpassPoiFinder
         $around = "around:{$radiusMeters},{$lat},{$lon}";
 
         return "[out:json][timeout:{$this->timeoutSeconds}];"
-            . "("
+            . '('
             . "node[\"amenity\"=\"fuel\"]({$around});"
             . "node[\"amenity\"=\"cafe\"]({$around});"
             . "node[\"amenity\"=\"restaurant\"]({$around});"
             . "node[\"tourism\"=\"hotel\"]({$around});"
-            . ");"
-            . "out center 40;";
+            . ');'
+            . 'out center 40;';
     }
 
     private function fetch(string $query): ?string

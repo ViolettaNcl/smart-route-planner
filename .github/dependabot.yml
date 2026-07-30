@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # У проекта нет runtime PHP-зависимостей (см. README), но composer.json
+  # теперь тянет dev-инструменты (PHPStan, PHP-CS-Fixer) — их тоже стоит
+  # держать актуальными.
+  - package-ecosystem: "composer"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+    labels:
+      - "dependencies"
+      - "ci"
+
+  - package-ecosystem: "docker"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"

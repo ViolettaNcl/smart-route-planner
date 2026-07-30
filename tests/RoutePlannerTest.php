@@ -3,9 +3,9 @@
 namespace Tests;
 
 use App\ML\TransportPredictor;
+use App\RoutePlanner;
 use App\Routing\HaversineCalculator;
 use App\Routing\RouteOptimizer;
-use App\RoutePlanner;
 use Tests\Fakes\FakeGeocoder;
 use Tests\Fakes\FakeRoadRouter;
 
@@ -34,8 +34,10 @@ class RoutePlannerTest
         $t->assertEquals('Источник маршрута — osrm_road, когда OSRM доступен', 'osrm_road', $result['routing_source']);
         $t->assertTrue('Первая точка маршрута — Москва (старт пользователя)', $result['points'][0] === 'Москва');
         $t->assertTrue('Дистанция от OSRM больше, чем "по воздуху" (реалистичнее)', $result['distance_km'] > 0);
-        $t->assertTrue('Для режима car время в пути помечено как точное (exact=true)', 
-            $result['transport']['mode'] !== 'car' || $result['duration']['exact'] === true);
+        $t->assertTrue(
+            'Для режима car время в пути помечено как точное (exact=true)',
+            $result['transport']['mode'] !== 'car' || $result['duration']['exact'] === true
+        );
 
         // --- Сценарий 2: OSRM недоступен — приложение не должно падать ---
         $plannerNoOsrm = new RoutePlanner(

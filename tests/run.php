@@ -19,19 +19,19 @@ require __DIR__ . '/RoutePlannerTest.php';
 require __DIR__ . '/Http/HttpTestServer.php';
 require __DIR__ . '/Http/ApiHttpTest.php';
 
+use Tests\ABTestStatsTest;
 use Tests\CostEstimatorTest;
 use Tests\EmissionsEstimatorTest;
-use Tests\ABTestStatsTest;
 use Tests\HaversineCalculatorTest;
 use Tests\Http\ApiHttpTest;
 use Tests\Http\HttpTestServer;
 use Tests\KMeansDaySplitterTest;
+use Tests\MLPClassifierTest;
 use Tests\ModelEvaluatorTest;
 use Tests\RateLimiterTest;
 use Tests\RouteOptimizerTest;
 use Tests\RoutePlannerTest;
 use Tests\SoftmaxClassifierTest;
-use Tests\MLPClassifierTest;
 use Tests\TestReporter;
 use Tests\TravelTimeEstimatorTest;
 

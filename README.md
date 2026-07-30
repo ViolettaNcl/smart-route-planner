@@ -231,6 +231,7 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | [`docs/neural_net.md`](docs/neural_net.md) ([EN](docs/neural_net.en.md)) | Model design, training, and evaluation metrics |
 | [`docs/business_analysis.md`](docs/business_analysis.md) ([EN](docs/business_analysis.en.md)) | Use cases and business logic |
 | [`docs/setup_guide.md`](docs/setup_guide.md) ([EN](docs/setup_guide.en.md)) | Installation: XAMPP, Docker, or the built-in PHP server |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 3.0 spec for all 13 `api/*.php` endpoints |
 
 ## Testing
 

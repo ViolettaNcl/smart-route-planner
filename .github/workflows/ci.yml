@@ -29,6 +29,15 @@ jobs:
       - name: Validate composer.json
         run: composer validate --no-check-all --no-check-publish
 
+      - name: Composer install (dev tools: PHPStan, PHP-CS-Fixer)
+        run: composer install --no-interaction --prefer-dist
+
+      - name: Code style check (PHP-CS-Fixer)
+        run: composer run cs-check
+
+      - name: Static analysis (PHPStan, level 6)
+        run: composer run stan
+
       - name: Lint all PHP files (php -l)
         run: |
           set -e
@@ -57,10 +66,11 @@ jobs:
             fi
             sleep 1
           done
+          echo "Checking /api/health.php..."
+          curl -sf http://127.0.0.1:8000/api/health.php | grep -q '"ok":true' \
+            && echo "Health check OK" \
+            || { echo "Health check failed"; kill "$SERVER_PID" || true; exit 1; }
           kill "$SERVER_PID" || true
 
-      - name: Composer install (no runtime deps, just to generate lock file)
-        run: composer install --no-interaction --prefer-dist
-
       - name: Composer audit
-        run: composer audit --no-dev || echo "No dependencies to audit - skipping."
+        run: composer audit || echo "No known advisories - skipping."

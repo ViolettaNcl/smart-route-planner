@@ -34,10 +34,16 @@ interface ClassifierInterface
 
     public function predict(float $x1, float $x2): string;
 
+    /**
+     * @param array<int, array{0: float, 1: float}> $features
+     * @param string[] $labels
+     */
     public function accuracy(array $features, array $labels): float;
 
+    /** @return array<string, mixed> */
     public function getWeights(): array;
 
+    /** @param array<string, mixed> $weights */
     public function setWeights(array $weights): void;
 
     /**

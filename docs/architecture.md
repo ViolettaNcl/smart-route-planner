@@ -43,6 +43,7 @@ public/
     feedback.php                      # POST: фиксирует "угадала ли модель" для варианта текущего визита
     learn.php                          # POST: "живое" дообучение MLP на одном примере пользователя
     reset_model.php                     # POST: сброс весов модели к изначально обученному состоянию
+    health.php                           # GET: health-check для аптайм-мониторинга и Docker HEALTHCHECK
   assets/
     css/route.css
     js/
@@ -88,6 +89,8 @@ src/
     RateLimiter.php                # Token bucket с нуля, файловое хранилище с flock
     ClientIdentity.php              # Определение клиента по IP (с опциональным доверием X-Forwarded-For)
     RateLimitGuard.php               # Обвязка: одна строка в начале api/*.php -> 429 при превышении лимита
+  Support/
+    Logger.php                     # Файловый логгер без зависимостей (var/app.log) — fallback-переключения
 tests/
   run.php                      # Точка входа: php tests/run.php
   TestReporter.php              # Мини-замена ассертов PHPUnit
@@ -175,6 +178,7 @@ docker-compose.yml              # Локальный запуск / просто
 | `api/feedback.php` | Фиксирует 👍/👎 — угадала ли модель для варианта, назначенного этому визиту |
 | `api/learn.php` | "Живое" дообучение: один шаг градиентного спуска MLP на примере, поправленном пользователем |
 | `api/reset_model.php` | Сбрасывает веса MLP к изначально обученному состоянию, отменяя эффект `learn.php` |
+| `api/health.php` | Health-check без обращения к внешним сервисам — для аптайм-мониторинга и Docker `HEALTHCHECK` |
 
 ## Шеринг маршрута без базы данных
 
@@ -232,6 +236,7 @@ docker-compose.yml              # Локальный запуск / просто
 | `RateLimiter` | Token bucket с нуля: непрерывное пополнение токенов, файловое хранилище с `flock`, fail-open при сбое диска |
 | `ClientIdentity` | Определение клиента по IP для rate limiting |
 | `RateLimitGuard` | Обвязка над `RateLimiter` для использования в одну строку в начале `api/*.php` — 429 при превышении |
+| `Logger` | Файловый логгер без зависимостей (`var/app.log`) — фиксирует fallback-переключения (OSRM→Haversine, LLM→rule-based) |
 | `Tests\Http\HttpTestServer` | Поднимает настоящий `php -S`, даёт `get()`/`post()` через cURL — основа HTTP-интеграционных тестов |
 | `public/assets/js/app.js` | Оркестрация фронтенда: fetch к API, состояние формы, рендер карточек/карты/виджетов фич, обработчики событий |
 | `public/assets/js/ui.js` | UI-слой без обращений к API: тема (светлая/тёмная, localStorage), синхронизация темы с картой и графиком модели, вкладки панели результата |

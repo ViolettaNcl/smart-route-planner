@@ -15,7 +15,7 @@ class TestReporter
 
     public function assertEquals(string $description, mixed $expected, mixed $actual): void
     {
-        $this->report($description, $expected === $actual, "ожидалось: " . var_export($expected, true) . ", получено: " . var_export($actual, true));
+        $this->report($description, $expected === $actual, 'ожидалось: ' . var_export($expected, true) . ', получено: ' . var_export($actual, true));
     }
 
     public function assertApprox(string $description, float $expected, float $actual, float $tolerance): void
@@ -26,7 +26,7 @@ class TestReporter
 
     public function assertTrue(string $description, bool $condition): void
     {
-        $this->report($description, $condition, "условие не выполнено");
+        $this->report($description, $condition, 'условие не выполнено');
     }
 
     private function report(string $description, bool $ok, string $detail): void

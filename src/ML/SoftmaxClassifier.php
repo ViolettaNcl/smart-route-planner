@@ -25,6 +25,7 @@ class SoftmaxClassifier implements ClassifierInterface
     /** @var string[] */
     private array $classes;
 
+    /** @param string[] $classes */
     public function __construct(array $classes)
     {
         $this->classes = $classes;
@@ -140,6 +141,10 @@ class SoftmaxClassifier implements ClassifierInterface
         ];
     }
 
+    /**
+     * @param array<int, array{0: float, 1: float}> $features
+     * @param string[] $labels
+     */
     public function accuracy(array $features, array $labels): float
     {
         $correct = 0;
@@ -152,11 +157,13 @@ class SoftmaxClassifier implements ClassifierInterface
         return count($labels) > 0 ? $correct / count($labels) : 0.0;
     }
 
+    /** @return array<string, array{0: float, 1: float, 2: float}> */
     public function getWeights(): array
     {
         return $this->weights;
     }
 
+    /** @param array<string, array{0: float, 1: float, 2: float}> $weights */
     public function setWeights(array $weights): void
     {
         $this->weights = $weights;

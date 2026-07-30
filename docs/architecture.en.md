@@ -45,6 +45,7 @@ public/
     feedback.php                      # POST: records whether the model's prediction was correct for this visit
     learn.php                          # POST: one live fine-tuning step for the MLP on a user-corrected example
     reset_model.php                     # POST: resets model weights to the originally trained state
+    health.php                           # GET: health check for uptime monitoring and Docker HEALTHCHECK
   assets/
     css/route.css
     js/
@@ -90,6 +91,8 @@ src/
     RateLimiter.php                # Token bucket from scratch, file storage with flock
     ClientIdentity.php              # Client identification by IP (with optional X-Forwarded-For trust)
     RateLimitGuard.php               # One-line wrapper at the top of api/*.php -> 429 on limit exceeded
+  Support/
+    Logger.php                     # Dependency-free file logger (var/app.log) — fallback transitions
 tests/
   run.php                      # Entry point: php tests/run.php
   TestReporter.php              # Minimal PHPUnit-assert replacement
@@ -178,6 +181,7 @@ break `api/route.php`:
 | `api/feedback.php` | Records a 👍/👎 — whether the model guessed correctly for the variant assigned to this visit |
 | `api/learn.php` | Live fine-tuning: one gradient-descent step for the MLP on a user-corrected example |
 | `api/reset_model.php` | Resets MLP weights to the originally trained state, undoing the effect of `learn.php` |
+| `api/health.php` | Health check with no external calls — for uptime monitoring and Docker `HEALTHCHECK` |
 
 ## Route Sharing Without a Database
 
@@ -235,6 +239,7 @@ simple as it gets, with zero database tables involved.
 | `RateLimiter` | Token bucket from scratch: continuous token replenishment, file storage with `flock`, fail-open on disk errors |
 | `ClientIdentity` | Client identification by IP for rate limiting |
 | `RateLimitGuard` | One-line wrapper around `RateLimiter` for use at the top of `api/*.php` — 429 on limit exceeded |
+| `Logger` | Dependency-free file logger (`var/app.log`) — records fallback transitions (OSRM→Haversine, LLM→rule-based) |
 | `Tests\Http\HttpTestServer` | Boots a real `php -S`, exposes `get()`/`post()` via cURL — the basis for HTTP integration tests |
 | `public/assets/js/app.js` | Frontend orchestration: API fetch calls, form state, rendering of result cards/map/feature widgets, event handlers |
 | `public/assets/js/ui.js` | UI-only layer with no API calls: theme (light/dark, localStorage), keeping the map and model chart in sync with the theme, result-panel tabs |

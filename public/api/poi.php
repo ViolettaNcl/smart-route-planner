@@ -75,8 +75,8 @@ try {
 }
 
 /**
- * @param array<int, array> $points
- * @return array<int, array>
+ * @param array<int, array<string, mixed>> $points
+ * @return array<int, array<string, mixed>>
  */
 function limitPoints(array $points, int $max): array
 {

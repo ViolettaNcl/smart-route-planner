@@ -130,6 +130,7 @@ class NominatimGeocoder implements GeocoderInterface
         return $suggestions;
     }
 
+    /** @return array{lat: float, lon: float}|null */
     private function fetchFromApi(string $place): ?array
     {
         $this->respectRateLimit();

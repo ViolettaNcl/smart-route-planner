@@ -49,5 +49,13 @@ RUN mkdir -p var/geocache var/ratelimit \
 
 EXPOSE 80
 
+# Даёт Docker/оркестратору (docker ps, docker compose, Kubernetes-подобные
+# системы) знать, жив ли контейнер по-настоящему, а не просто "процесс не
+# упал". Бьёт в /api/health.php изнутри контейнера — используем php-cli с
+# потоковой обёрткой http, чтобы не тащить в образ отдельно curl CLI (curl
+# уже стоит как PHP-расширение, а не как утилита командной строки).
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+    CMD php -r "exit(@file_get_contents('http://localhost/api/health.php') === false ? 1 : 0);"
+
 # apache2-foreground — стандартный CMD официального образа php:apache,
 # наследуется автоматически; явно не переопределяем.

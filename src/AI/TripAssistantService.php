@@ -2,6 +2,8 @@
 
 namespace App\AI;
 
+use App\Support\Logger;
+
 /**
  * AI-ассистент поездки: превращает посчитанный маршрут (точки, дистанция,
  * время, предсказанный транспорт) + погоду по точкам в человеческое
@@ -36,6 +38,7 @@ class TripAssistantService
     private ?string $openaiKey;
     private string $anthropicModel;
     private string $openaiModel;
+    private Logger $logger;
 
     public function __construct(
         ?string $anthropicKey = null,
@@ -43,6 +46,7 @@ class TripAssistantService
         string $anthropicModel = 'claude-haiku-4-5-20251001',
         string $openaiModel = 'gpt-4o-mini',
         private int $timeoutSeconds = 12,
+        ?Logger $logger = null,
     ) {
         // Ключи можно передать явно (удобно для тестов) — если не переданы,
         // читаем из окружения. Так секреты не попадают в код и в git.
@@ -50,11 +54,12 @@ class TripAssistantService
         $this->openaiKey = $openaiKey ?? (getenv('OPENAI_API_KEY') ?: null);
         $this->anthropicModel = getenv('AI_MODEL_ANTHROPIC') ?: $anthropicModel;
         $this->openaiModel = getenv('AI_MODEL_OPENAI') ?: $openaiModel;
+        $this->logger = $logger ?? new Logger(__DIR__ . '/../../var/app.log');
     }
 
     /**
-     * @param array $route Результат RoutePlanner::plan() (ok=true)
-     * @param array<int, array> $weatherPoints Результат OpenMeteoClient::forecastForPoints(),
+     * @param array<string, mixed> $route Результат RoutePlanner::plan() (ok=true)
+     * @param array<int, array<string, mixed>|null> $weatherPoints Результат OpenMeteoClient::forecastForPoints(),
      *                                          в том же порядке, что и $route['points']
      * @return array{text: string, source: 'llm'|'fallback', provider: ?string}
      */
@@ -65,6 +70,7 @@ class TripAssistantService
             if ($text !== null) {
                 return ['text' => $text, 'source' => 'llm', 'provider' => 'anthropic'];
             }
+            $this->logger->warning('Anthropic API call failed, trying next provider');
         }
 
         if ($this->openaiKey !== null) {
@@ -72,9 +78,14 @@ class TripAssistantService
             if ($text !== null) {
                 return ['text' => $text, 'source' => 'llm', 'provider' => 'openai'];
             }
+            $this->logger->warning('OpenAI API call failed, falling back to rule-based text');
         }
 
         // Ни один LLM недоступен (нет ключа или сбой сети) — офлайн fallback.
+        if ($this->anthropicKey === null && $this->openaiKey === null) {
+            $this->logger->info('No LLM API key configured, using rule-based fallback text');
+        }
+
         return [
             'text' => $this->fallbackNarrative($route, $weatherPoints),
             'source' => 'fallback',
@@ -91,6 +102,10 @@ class TripAssistantService
     // LLM-режим
     // -----------------------------------------------------------------
 
+    /**
+     * @param array<string, mixed> $route
+     * @param array<int, array<string, mixed>|null> $weatherPoints
+     */
     private function callAnthropic(array $route, array $weatherPoints): ?string
     {
         $prompt = $this->buildPrompt($route, $weatherPoints);
@@ -131,6 +146,10 @@ class TripAssistantService
         return $text !== '' ? trim($text) : null;
     }
 
+    /**
+     * @param array<string, mixed> $route
+     * @param array<int, array<string, mixed>|null> $weatherPoints
+     */
     private function callOpenAi(array $route, array $weatherPoints): ?string
     {
         $prompt = $this->buildPrompt($route, $weatherPoints);
@@ -170,6 +189,10 @@ class TripAssistantService
             . '"Конечно, вот...", сразу к сути. Не придумывай названия кафе/отелей — только общие советы.';
     }
 
+    /**
+     * @param array<string, mixed> $route
+     * @param array<int, array<string, mixed>|null> $weatherPoints
+     */
     private function buildPrompt(array $route, array $weatherPoints): string
     {
         $points = $route['points'] ?? [];
@@ -201,6 +224,10 @@ class TripAssistantService
     // Офлайн fallback (без LLM)
     // -----------------------------------------------------------------
 
+    /**
+     * @param array<string, mixed> $route
+     * @param array<int, array<string, mixed>|null> $weatherPoints
+     */
     private function fallbackNarrative(array $route, array $weatherPoints): string
     {
         $points = $route['points'] ?? [];
@@ -222,7 +249,7 @@ class TripAssistantService
         if ($distance > 500 && $mode !== 'walk') {
             $overnightCandidate = count($points) >= 3 ? $points[(int) floor(count($points) * 0.6)] : null;
             $sentences[] = $overnightCandidate
-                ? "Дистанция большая (" . round($distance) . " км), за один день без остановок будет тяжело — "
+                ? 'Дистанция большая (' . round($distance) . ' км), за один день без остановок будет тяжело — '
                     . "стоит запланировать ночёвку в районе {$overnightCandidate}."
                 : 'Дистанция большая (' . round($distance) . ' км) — рассмотрите ночёвку по пути, '
                     . 'а не один длинный перегон.';
@@ -259,6 +286,9 @@ class TripAssistantService
     // HTTP
     // -----------------------------------------------------------------
 
+    /**
+     * @param array<int, string> $headers
+     */
     private function post(string $url, string $payload, array $headers): ?string
     {
         $ch = curl_init($url);
@@ -277,7 +307,12 @@ class TripAssistantService
 
         if ($body === false || $error !== '' || $status !== 200) {
             if ($status !== 200) {
-                error_log("[smart-route-planner] LLM API вернул статус {$status}: " . substr((string) $body, 0, 300));
+                $this->logger->error('LLM API returned a non-200 status', [
+                    'status' => $status,
+                    'body_excerpt' => substr((string) $body, 0, 300),
+                ]);
+            } elseif ($error !== '') {
+                $this->logger->error('LLM API request failed', ['curl_error' => $error]);
             }
             return null;
         }

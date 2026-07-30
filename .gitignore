@@ -13,8 +13,13 @@ config.local.php
 /var/geocache/*
 /var/ratelimit/*
 /var/ab_stats.json
+/var/app.log
 !/var/geocache/.gitkeep
 !/var/ratelimit/.gitkeep
+
+# --- Кэш инструментов статического анализа ---
+/var/phpstan-cache/
+.php-cs-fixer.cache
 
 # --- IDE / ОС-мусор ---
 .idea/

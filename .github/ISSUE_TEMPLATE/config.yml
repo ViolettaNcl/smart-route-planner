@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Вопросы по установке/настройке
+    url: https://github.com/ViolettaNcl/smart-route-planner/discussions
+    about: Для вопросов "как запустить/настроить" — см. также docs/setup_guide.md

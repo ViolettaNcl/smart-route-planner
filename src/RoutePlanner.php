@@ -10,6 +10,7 @@ use App\Routing\HaversineCalculator;
 use App\Routing\RoadRouterInterface;
 use App\Routing\RouteOptimizer;
 use App\Routing\TravelTimeEstimator;
+use App\Support\Logger;
 
 /**
  * Основной сервис приложения: принимает сырой пользовательский ввод,
@@ -22,6 +23,8 @@ use App\Routing\TravelTimeEstimator;
  */
 class RoutePlanner
 {
+    private Logger $logger;
+
     public function __construct(
         private GeocoderInterface $geocoder,
         private HaversineCalculator $calculator,
@@ -31,10 +34,12 @@ class RoutePlanner
         private ?TravelTimeEstimator $timeEstimator = null,
         private ?CostEstimator $costEstimator = null,
         private ?EmissionsEstimator $emissionsEstimator = null,
+        ?Logger $logger = null,
     ) {
         $this->timeEstimator ??= new TravelTimeEstimator();
         $this->costEstimator ??= new CostEstimator();
         $this->emissionsEstimator ??= new EmissionsEstimator();
+        $this->logger = $logger ?? new Logger(__DIR__ . '/../var/app.log');
     }
 
     /**
@@ -43,6 +48,7 @@ class RoutePlanner
      *              ticket_price_per_km?: float|null, ticket_base_fare?: float|null} $costParams
      *              Необязательные параметры расчёта стоимости поездки — если не заданы,
      *              используются дефолты CostEstimator.
+     * @return array<string, mixed>
      */
     public function plan(string $rawPoints, array $costParams = []): array
     {
@@ -65,6 +71,16 @@ class RoutePlanner
         $airDistance = round($this->calculator->totalDistanceKm($orderedCoords));
 
         $roadRoute = $this->roadRouter?->route($orderedCoords);
+
+        if ($this->roadRouter !== null && $roadRoute === null) {
+            // OSRM был сконфигурирован, но не ответил (сервис недоступен,
+            // rate limit, таймаут) — приложение продолжает работать на
+            // Haversine-дистанции, но это стоит видеть в логах, а не только
+            // в honest-метке routing_source в ответе API.
+            $this->logger->warning('OSRM routing unavailable, falling back to great-circle distance', [
+                'points' => count($orderedCoords),
+            ]);
+        }
 
         // Реальная дорожная дистанция обычно длиннее прямой "по воздуху" —
         // используем её, если удалось построить маршрут (точнее для пользователя
@@ -105,7 +121,7 @@ class RoutePlanner
     }
 
     /**
-     * @param array{distance_km: float, duration_min: float, geometry: array}|null $roadRoute
+     * @param array{distance_km: float, duration_min: float, geometry: array<int, array{0: float, 1: float}>}|null $roadRoute
      * @return array{minutes: float, label: string, exact: bool}
      */
     private function resolveDuration(?array $roadRoute, float $distanceKm, string $mode): array
