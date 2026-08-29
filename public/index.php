@@ -21,7 +21,7 @@
 
     <!-- PWA: манифест + мета-теги, чтобы сайт можно было установить на телефон -->
     <link rel="manifest" href="manifest.webmanifest">
-    <meta name="theme-color" content="#07130f">
+    <meta name="theme-color" content="#14171c">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -49,9 +49,9 @@
                 <svg viewBox="0 0 40 40" width="34" height="34" role="img">
                     <defs>
                         <linearGradient id="logoGrad" x1="2" y1="2" x2="38" y2="38" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stop-color="#b7f36b" />
-                            <stop offset="48%" stop-color="#46cf91" />
-                            <stop offset="100%" stop-color="#7164ed" />
+                            <stop offset="0%" stop-color="#c9b8ff" />
+                            <stop offset="55%" stop-color="#8b5cf6" />
+                            <stop offset="100%" stop-color="#6425c9" />
                         </linearGradient>
                     </defs>
                     <rect x="1.5" y="1.5" width="37" height="37" rx="11" fill="url(#logoGrad)" />
@@ -138,78 +138,22 @@
                         <span data-i18n="highlightCostText">Расход топлива или билет плюс экологический след поездки</span>
                     </div>
                 </div>
-                <div class="highlight-item">
-                    <span class="highlight-icon">🌿</span>
-                    <div class="highlight-text">
-                        <strong data-i18n="highlightMapTitle">Живая 2D/3D-карта</strong>
-                        <span data-i18n="highlightMapText">Рельеф, здания и природные цвета — без API-ключа</span>
-                    </div>
-                </div>
             </div>
         </div>
 
         <div class="map-panel">
-            <div class="map-identity">
-                <span class="map-identity-icon" aria-hidden="true">🌿</span>
-                <span class="map-identity-copy">
-                    <strong data-i18n="mapIdentityTitle">Eco terrain</strong>
-                    <small data-i18n="mapIdentitySubtitle">OpenFreeMap · без API-ключа</small>
-                </span>
-            </div>
             <div id="map-mode-control" class="map-mode-control hidden" role="group" data-i18n-aria-label="mapModeLabel">
                 <button type="button" class="map-mode-btn" data-map-mode="2d" aria-pressed="false">
-                    <span class="map-mode-icon map-mode-icon-2d" aria-hidden="true"></span>
+                    <span class="map-mode-icon" aria-hidden="true">▱</span>
                     <span>2D</span>
                 </button>
                 <button type="button" class="map-mode-btn" data-map-mode="3d" aria-pressed="true">
-                    <span class="map-mode-icon map-mode-icon-3d" aria-hidden="true"></span>
+                    <span class="map-mode-icon map-mode-icon-3d" aria-hidden="true">◇</span>
                     <span>3D</span>
                 </button>
             </div>
-            <div id="map-placeholder" class="map-placeholder">
-                <svg class="map-placeholder-art" viewBox="0 0 640 340" aria-hidden="true">
-                    <defs>
-                        <linearGradient id="terrainGrad" x1="0" y1="0" x2="1" y2="1">
-                            <stop offset="0" stop-color="#183d2c" />
-                            <stop offset="0.55" stop-color="#256447" />
-                            <stop offset="1" stop-color="#17606a" />
-                        </linearGradient>
-                        <linearGradient id="previewRouteGrad" x1="0" y1="0" x2="1" y2="0">
-                            <stop offset="0" stop-color="#b5ef70" />
-                            <stop offset="0.58" stop-color="#4bd7af" />
-                            <stop offset="1" stop-color="#ffd15d" />
-                        </linearGradient>
-                        <filter id="previewGlow" x="-40%" y="-40%" width="180%" height="180%">
-                            <feGaussianBlur stdDeviation="7" result="blur" />
-                            <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                        </filter>
-                    </defs>
-                    <rect x="0" y="0" width="640" height="340" rx="26" fill="url(#terrainGrad)" />
-                    <g class="preview-contours" fill="none" stroke="rgba(211,255,207,.2)" stroke-width="2">
-                        <path d="M-30 75 C70 5 176 20 240 73 S385 142 477 83 S605 19 682 67" />
-                        <path d="M-36 112 C58 48 173 59 237 107 S386 175 483 119 S610 56 681 99" />
-                        <path d="M-30 251 C72 187 176 194 248 244 S402 305 492 251 S611 188 678 225" />
-                        <path d="M-24 287 C79 229 180 233 254 281 S397 344 497 291 S614 228 685 267" />
-                    </g>
-                    <path d="M0 216 C91 187 133 219 208 195 S337 142 410 163 S526 215 640 174 L640 340 L0 340 Z" fill="rgba(7,28,22,.34)" />
-                    <g class="preview-trees" fill="#9ade78" opacity=".65">
-                        <circle cx="98" cy="132" r="8" /><circle cx="119" cy="144" r="6" /><circle cx="534" cy="106" r="9" />
-                        <circle cx="557" cy="120" r="7" /><circle cx="501" cy="132" r="5" /><circle cx="443" cy="265" r="8" />
-                    </g>
-                    <path class="preview-route-glow" d="M76 254 C131 202 179 237 232 185 S341 96 401 143 S496 206 567 92" />
-                    <path class="preview-route" d="M76 254 C131 202 179 237 232 185 S341 96 401 143 S496 206 567 92" />
-                    <g class="preview-pin preview-pin-start" transform="translate(76 254)"><circle r="13" /><circle class="preview-pin-ring" r="19" /></g>
-                    <g class="preview-pin preview-pin-end" transform="translate(567 92)"><circle r="14" /><circle class="preview-pin-ring" r="21" /></g>
-                </svg>
-                <div class="map-placeholder-copy">
-                    <strong data-i18n="mapPlaceholderTitle">Ваш маршрут оживёт здесь</strong>
-                    <p data-i18n="mapPlaceholder">Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.</p>
-                    <div class="map-feature-pills" aria-hidden="true">
-                        <span data-i18n="mapPill2d">Чистая 2D</span>
-                        <span data-i18n="mapPill3d">Рельефная 3D</span>
-                        <span data-i18n="mapPillKeyless">Без ключа</span>
-                    </div>
-                </div>
+            <div id="map-placeholder" class="map-placeholder" data-i18n="mapPlaceholder">
+                Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.
             </div>
             <div id="map" class="hidden"></div>
         </div>

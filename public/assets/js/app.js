@@ -42,10 +42,8 @@ let lastMapRender = null;
 
 const MAP_MODE_STORAGE_KEY = 'srp_map_mode';
 const ROUTE_SOURCE_ID = 'route-geometry';
-const ROUTE_CASING_LAYER_ID = 'route-casing';
 const ROUTE_GLOW_LAYER_ID = 'route-glow';
 const ROUTE_LINE_LAYER_ID = 'route-line';
-const ROUTE_HIGHLIGHT_LAYER_ID = 'route-highlight';
 const BUILDINGS_SOURCE_ID = 'openfreemap-buildings';
 const BUILDINGS_LAYER_ID = 'route-map-3d-buildings';
 
@@ -61,39 +59,12 @@ let currentMapMode = (() => {
 // Они заменяют старые raster-тайлы, на которых провайдер начал показывать
 // водяной знак API KEY REQUIRED.
 const MAP_STYLES = {
-    dark: 'https://tiles.openfreemap.org/styles/fiord',
-    light: 'https://tiles.openfreemap.org/styles/liberty',
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron',
 };
 
 function currentMapTheme() {
     return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
-}
-
-function supportsWebGlMap() {
-    if (typeof maplibregl === 'undefined' || typeof maplibregl.Map !== 'function') {
-        return false;
-    }
-
-    // The `supported()` helper is not present in every MapLibre browser bundle.
-    // Guard it instead of turning a successful route response into a UI error.
-    if (typeof maplibregl.supported === 'function') {
-        try {
-            return maplibregl.supported();
-        } catch (e) {
-            // Fall through to a direct WebGL2 capability check.
-        }
-    }
-
-    try {
-        const canvas = document.createElement('canvas');
-        const context = canvas.getContext('webgl2', {
-            failIfMajorPerformanceCaveat: false,
-            antialias: true,
-        });
-        return Boolean(context);
-    } catch (e) {
-        return false;
-    }
 }
 
 // Вызывается из ui.js при переключении светлой/тёмной темы, чтобы перекрасить
@@ -476,77 +447,6 @@ function findFirstLabelLayerId() {
     return labelLayer ? labelLayer.id : undefined;
 }
 
-function setLayerPaint(layerId, property, value) {
-    try {
-        routeMap.setPaintProperty(layerId, property, value);
-    } catch (e) {
-        // OpenFreeMap styles evolve independently. Unsupported paint properties
-        // are optional polish and must never stop route rendering.
-    }
-}
-
-function applyNaturePalette() {
-    if (!routeMap || !routeMap.getStyle()) return;
-
-    const dark = currentMapTheme() === 'dark';
-    const palette = dark ? {
-        background: '#071813',
-        water: '#0c3b43',
-        waterway: '#39b9b1',
-        forest: '#113b29',
-        grass: '#1a4930',
-        building: '#24463a',
-        buildingOutline: '#3c6858',
-        label: '#dff7e9',
-        labelHalo: '#071813',
-    } : {
-        background: '#eef7ea',
-        water: '#bce7e1',
-        waterway: '#3b9f9b',
-        forest: '#c9e6bd',
-        grass: '#dcefd0',
-        building: '#dce8d7',
-        buildingOutline: '#afc8aa',
-        label: '#244536',
-        labelHalo: '#f6fbf3',
-    };
-
-    (routeMap.getStyle().layers || []).forEach((layer) => {
-        const descriptor = (layer.id + ' ' + (layer['source-layer'] || '')).toLowerCase();
-
-        if (layer.type === 'background') {
-            setLayerPaint(layer.id, 'background-color', palette.background);
-            return;
-        }
-
-        if (layer.type === 'fill') {
-            if (/water|ocean|lake|river/.test(descriptor)) {
-                setLayerPaint(layer.id, 'fill-color', palette.water);
-            } else if (/forest|wood|tree|scrub/.test(descriptor)) {
-                setLayerPaint(layer.id, 'fill-color', palette.forest);
-                setLayerPaint(layer.id, 'fill-opacity', dark ? 0.82 : 0.88);
-            } else if (/park|grass|meadow|garden|green|nature/.test(descriptor)) {
-                setLayerPaint(layer.id, 'fill-color', palette.grass);
-                setLayerPaint(layer.id, 'fill-opacity', dark ? 0.76 : 0.84);
-            } else if (/building/.test(descriptor)) {
-                setLayerPaint(layer.id, 'fill-color', palette.building);
-                setLayerPaint(layer.id, 'fill-outline-color', palette.buildingOutline);
-            }
-            return;
-        }
-
-        if (layer.type === 'line' && /water|river|stream|canal/.test(descriptor)) {
-            setLayerPaint(layer.id, 'line-color', palette.waterway);
-        }
-
-        if (layer.type === 'symbol' && layer.layout && layer.layout['text-field']) {
-            setLayerPaint(layer.id, 'text-color', palette.label);
-            setLayerPaint(layer.id, 'text-halo-color', palette.labelHalo);
-            setLayerPaint(layer.id, 'text-halo-width', dark ? 1.35 : 1.1);
-        }
-    });
-}
-
 function add3dBuildingsLayer() {
     if (!routeMap || routeMap.getLayer(BUILDINGS_LAYER_ID)) return;
 
@@ -571,9 +471,9 @@ function add3dBuildingsLayer() {
         paint: {
             'fill-extrusion-color': [
                 'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0],
-                0, dark ? '#173b2e' : '#dcebd6',
-                80, dark ? '#37775f' : '#9fc593',
-                240, dark ? '#b6ee72' : '#4d9361',
+                0, dark ? '#293340' : '#d7dbe5',
+                80, dark ? '#59677b' : '#aeb8cb',
+                240, dark ? '#b59df8' : '#8870c9',
             ],
             'fill-extrusion-height': [
                 'interpolate', ['linear'], ['zoom'],
@@ -581,7 +481,7 @@ function add3dBuildingsLayer() {
                 15, ['coalesce', ['get', 'render_height'], 8],
             ],
             'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-            'fill-extrusion-opacity': dark ? 0.86 : 0.8,
+            'fill-extrusion-opacity': dark ? 0.78 : 0.7,
             'fill-extrusion-vertical-gradient': true,
         },
     }, findFirstLabelLayerId());
@@ -600,105 +500,6 @@ function routeGeoJson(routeGeometry) {
     };
 }
 
-function routePoint(point) {
-    if (Array.isArray(point)) {
-        return { lat: Number(point[0]), lon: Number(point[1]) };
-    }
-    return { lat: Number(point.lat), lon: Number(point.lon) };
-}
-
-function renderStaticRouteMap(coords, labels, routeGeometry) {
-    const panel = mapContainer.closest('.map-panel');
-    const sourcePoints = (Array.isArray(routeGeometry) && routeGeometry.length > 1
-        ? routeGeometry
-        : coords).map(routePoint).filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
-
-    if (sourcePoints.length < 2) {
-        mapContainer.innerHTML = '<div class="map-webgl-error">' + escapeHtml(t('mapWebglError')) + '</div>';
-        show(mapContainer);
-        hide(mapPlaceholder);
-        hide(mapModeControl);
-        return null;
-    }
-
-    const maxSvgPoints = 420;
-    const sampleEvery = Math.max(1, Math.ceil(sourcePoints.length / maxSvgPoints));
-    const sampled = sourcePoints.filter((point, index) => index % sampleEvery === 0);
-    if (sampled[sampled.length - 1] !== sourcePoints[sourcePoints.length - 1]) {
-        sampled.push(sourcePoints[sourcePoints.length - 1]);
-    }
-
-    const allLons = sourcePoints.map((point) => point.lon);
-    const allLats = sourcePoints.map((point) => point.lat);
-    const minLon = Math.min(...allLons);
-    const maxLon = Math.max(...allLons);
-    const minLat = Math.min(...allLats);
-    const maxLat = Math.max(...allLats);
-    const lonSpan = Math.max(maxLon - minLon, 0.02);
-    const latSpan = Math.max(maxLat - minLat, 0.02);
-    const width = 1000;
-    const height = 560;
-    const padding = 76;
-
-    const project = (point) => ({
-        x: padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2),
-        y: height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2),
-    });
-
-    const path = sampled.map((point, index) => {
-        const projected = project(point);
-        return (index === 0 ? 'M' : 'L') + projected.x.toFixed(1) + ' ' + projected.y.toFixed(1);
-    }).join(' ');
-
-    const markerSvg = coords.map((coord, index) => {
-        const point = project(routePoint(coord));
-        const markerClass = index === 0 ? ' static-marker-start'
-            : (index === coords.length - 1 ? ' static-marker-end' : '');
-        const shortLabel = index === 0 ? 'A' : (index === coords.length - 1 ? 'B' : String(index + 1));
-        return '<g class="static-route-marker' + markerClass + '" transform="translate('
-            + point.x.toFixed(1) + ' ' + point.y.toFixed(1) + ')">'
-            + '<circle r="18"></circle><circle class="static-route-marker-ring" r="25"></circle>'
-            + '<text text-anchor="middle" dominant-baseline="central">' + shortLabel + '</text></g>';
-    }).join('');
-
-    const endpointLabels = [0, coords.length - 1].filter((index, position, array) => array.indexOf(index) === position)
-        .map((index) => {
-            const point = project(routePoint(coords[index]));
-            const label = escapeHtml(labels[index] || '');
-            const anchor = index === 0 ? 'start' : 'end';
-            const offset = index === 0 ? 30 : -30;
-            return '<text class="static-route-label" x="' + (point.x + offset).toFixed(1) + '" y="'
-                + (point.y - 27).toFixed(1) + '" text-anchor="' + anchor + '">' + label + '</text>';
-        }).join('');
-
-    mapContainer.innerHTML = '<div class="static-route-map">'
-        + '<svg viewBox="0 0 1000 560" role="img" aria-label="' + escapeHtml(t('mapStaticMode')) + '">'
-        + '<defs><linearGradient id="static-map-bg" x1="0" y1="0" x2="1" y2="1">'
-        + '<stop offset="0" stop-color="#0a261d"></stop><stop offset="0.55" stop-color="#123b2e"></stop>'
-        + '<stop offset="1" stop-color="#0d3940"></stop></linearGradient>'
-        + '<linearGradient id="static-route-line" x1="0" y1="0" x2="1" y2="0">'
-        + '<stop offset="0" stop-color="#99ef72"></stop><stop offset="0.52" stop-color="#42d6b1"></stop>'
-        + '<stop offset="1" stop-color="#ffc85b"></stop></linearGradient>'
-        + '<filter id="static-route-glow"><feGaussianBlur stdDeviation="9" result="blur"></feGaussianBlur>'
-        + '<feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>'
-        + '<pattern id="static-contours" width="120" height="90" patternUnits="userSpaceOnUse">'
-        + '<path d="M-20 52 C18 12 82 13 140 46 M-28 74 C26 36 80 40 148 67" fill="none" stroke="rgba(189,247,187,.13)" stroke-width="2"></path>'
-        + '</pattern></defs><rect width="1000" height="560" fill="url(#static-map-bg)"></rect>'
-        + '<rect width="1000" height="560" fill="url(#static-contours)"></rect>'
-        + '<path class="static-route-glow" d="' + path + '"></path>'
-        + '<path class="static-route-path" d="' + path + '"></path>' + markerSvg + endpointLabels + '</svg>'
-        + '<div class="static-route-note"><span aria-hidden="true">🌿</span><span>'
-        + escapeHtml(t('mapStaticMode')) + '</span></div></div>';
-
-    hide(mapPlaceholder);
-    show(mapContainer);
-    hide(mapModeControl);
-    if (panel) {
-        panel.classList.add('map-ready', 'map-static');
-    }
-    return null;
-}
-
 function addRouteLayers() {
     if (!routeMap || !lastMapRender || routeMap.getSource(ROUTE_SOURCE_ID)) return;
 
@@ -710,21 +511,6 @@ function addRouteLayers() {
 
     const beforeId = findFirstLabelLayerId();
     routeMap.addLayer({
-        id: ROUTE_CASING_LAYER_ID,
-        type: 'line',
-        source: ROUTE_SOURCE_ID,
-        layout: {
-            'line-cap': 'round',
-            'line-join': 'round',
-        },
-        paint: {
-            'line-color': currentMapTheme() === 'dark' ? '#061d16' : '#f8fff4',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 8, 10, 13, 16, 19],
-            'line-opacity': 0.92,
-        },
-    }, beforeId);
-
-    routeMap.addLayer({
         id: ROUTE_GLOW_LAYER_ID,
         type: 'line',
         source: ROUTE_SOURCE_ID,
@@ -733,10 +519,10 @@ function addRouteLayers() {
             'line-join': 'round',
         },
         paint: {
-            'line-color': '#69e69b',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 12, 10, 20, 16, 30],
-            'line-opacity': 0.28,
-            'line-blur': 7,
+            'line-color': '#43e3d4',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 8, 10, 13, 16, 20],
+            'line-opacity': 0.24,
+            'line-blur': 5,
         },
     }, beforeId);
 
@@ -753,35 +539,17 @@ function addRouteLayers() {
             'line-opacity': 0.98,
             'line-gradient': [
                 'interpolate', ['linear'], ['line-progress'],
-                0, '#9bef6d',
-                0.38, '#45d7ad',
-                0.68, '#4fc9dc',
-                0.86, '#ffd15c',
-                1, '#ff8c70',
+                0, '#4fe4d7',
+                0.48, '#61c7f2',
+                0.72, '#ffc85b',
+                1, '#ff7b8a',
             ],
-        },
-    }, beforeId);
-
-    routeMap.addLayer({
-        id: ROUTE_HIGHLIGHT_LAYER_ID,
-        type: 'line',
-        source: ROUTE_SOURCE_ID,
-        layout: {
-            'line-cap': 'round',
-            'line-join': 'round',
-        },
-        paint: {
-            'line-color': 'rgba(255,255,255,0.9)',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.7, 10, 1.15, 16, 1.8],
-            'line-opacity': 0.7,
-            'line-dasharray': [0.7, 2.2],
         },
     }, beforeId);
 }
 
 function restoreMapLayers() {
     if (!routeMap || !routeMap.isStyleLoaded()) return;
-    applyNaturePalette();
     add3dBuildingsLayer();
     addRouteLayers();
     applyMapMode(false);
@@ -808,9 +576,9 @@ function applyMapMode(animate = true) {
     }
 
     routeMap.easeTo({
-        pitch: currentMapMode === '3d' ? 58 : 0,
-        bearing: currentMapMode === '3d' ? -24 : 0,
-        duration: animate ? 900 : 0,
+        pitch: currentMapMode === '3d' ? 52 : 0,
+        bearing: currentMapMode === '3d' ? -18 : 0,
+        duration: animate ? 750 : 0,
         essential: true,
     });
 }
@@ -831,7 +599,9 @@ document.querySelectorAll('[data-map-mode]').forEach((button) => {
 updateMapModeButtons();
 
 function createRouteMap() {
-    if (!supportsWebGlMap()) {
+    if (typeof maplibregl === 'undefined' || !maplibregl.supported()) {
+        hide(mapModeControl);
+        mapContainer.innerHTML = '<div class="map-webgl-error">' + escapeHtml(t('mapWebglError')) + '</div>';
         return null;
     }
 
@@ -840,9 +610,8 @@ function createRouteMap() {
         style: MAP_STYLES[currentMapTheme()],
         center: [14, 48],
         zoom: 4,
-        pitch: currentMapMode === '3d' ? 58 : 0,
-        bearing: currentMapMode === '3d' ? -24 : 0,
-        maxPitch: 72,
+        pitch: currentMapMode === '3d' ? 52 : 0,
+        bearing: currentMapMode === '3d' ? -18 : 0,
         attributionControl: false,
         canvasContextAttributes: { antialias: true },
     });
@@ -904,25 +673,14 @@ function renderMap(coords, labels, routeGeometry) {
     show(mapModeControl);
     lastMapRender = { coords, labels, routeGeometry };
 
-    const panel = mapContainer.closest('.map-panel');
-    if (panel) {
-        panel.classList.add('map-ready');
-        panel.classList.remove('map-static');
-    }
-
-    if (!routeMap && !createRouteMap()) {
-        renderStaticRouteMap(coords, labels, routeGeometry);
-        return;
-    }
+    if (!routeMap && !createRouteMap()) return;
 
     routeMap.resize();
     renderRouteMarkers(coords, labels);
 
     if (routeMap.isStyleLoaded()) {
-        if (routeMap.getLayer(ROUTE_HIGHLIGHT_LAYER_ID)) routeMap.removeLayer(ROUTE_HIGHLIGHT_LAYER_ID);
         if (routeMap.getLayer(ROUTE_LINE_LAYER_ID)) routeMap.removeLayer(ROUTE_LINE_LAYER_ID);
         if (routeMap.getLayer(ROUTE_GLOW_LAYER_ID)) routeMap.removeLayer(ROUTE_GLOW_LAYER_ID);
-        if (routeMap.getLayer(ROUTE_CASING_LAYER_ID)) routeMap.removeLayer(ROUTE_CASING_LAYER_ID);
         if (routeMap.getSource(ROUTE_SOURCE_ID)) routeMap.removeSource(ROUTE_SOURCE_ID);
         addRouteLayers();
     }
@@ -932,9 +690,9 @@ function renderMap(coords, labels, routeGeometry) {
     routeMap.fitBounds(bounds, {
         padding: { top: 72, right: 64, bottom: 72, left: 64 },
         maxZoom: 15.5,
-        pitch: currentMapMode === '3d' ? 58 : 0,
-        bearing: currentMapMode === '3d' ? -24 : 0,
-        duration: 1250,
+        pitch: currentMapMode === '3d' ? 52 : 0,
+        bearing: currentMapMode === '3d' ? -18 : 0,
+        duration: 1100,
         essential: true,
     });
 }

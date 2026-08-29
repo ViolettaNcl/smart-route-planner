@@ -109,11 +109,9 @@
   бесплатный Overpass API — без ключа API.
 - **Погода по маршруту** через Open-Meteo (без ключа) — предупреждения о
   сильном дожде, жаре, морозе или грозе у каждой точки.
-- **Графическая карта в природной палитре** на MapLibre GL JS — стили
-  OpenFreeMap Fiord/Liberty без API-ключа, более зелёные парки и леса,
-  пронумерованные маркеры, реальная геометрия пути и переключатель 2D ⇄ 3D
-  с рельефом Mapterhorn, атмосферой и объёмными зданиями. На устройствах без
-  WebGL вместо пустого поля показывается аккуратная SVG-карта маршрута.
+- **Интерактивная карта** на MapLibre GL JS — векторные данные OpenFreeMap без
+  API-ключа, пронумерованные маркеры, реальная геометрия пути и переключатель
+  2D ⇄ 3D с объёмными зданиями.
 - **Ссылка-шеринг маршрута без базы данных** — весь маршрут кодируется
   прямо в URL; открытие ссылки сразу пересчитывает и показывает поездку.
 - Готовые ссылки на Google Maps и Яндекс.Карты.
@@ -216,7 +214,7 @@ docker compose up --build
 | Machine Learning | MLP (скрытый слой + backprop с нуля) и softmax-регрессия — градиентный спуск, кросс-энтропийная потеря; K-Means (метод Ллойда, с нуля) — unsupervised-кластеризация плана по дням |
 | AI-ассистент | Vercel AI Gateway (OIDC), резерв Anthropic/OpenAI, rule-based офлайн-fallback |
 | Геоданные | Overpass API (точки интереса), Open-Meteo (погода) — оба без ключа |
-| Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap Fiord/Liberty + рельеф Mapterhorn (2D/3D-карта без ключа), SVG-fallback, Chart.js, CSS custom properties (темизация) |
+| Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap (векторная 2D/3D-карта без ключа), Chart.js, CSS custom properties (темизация) |
 | Тестирование | Собственный минимальный test-runner (без зависимостей); HTTP-интеграционные тесты через `php -S` |
 | Rate limiting | Token bucket с нуля (`App\Http\RateLimiter`), файловое хранилище с `flock` |
 | CI/CD | GitHub Actions — lint + тесты на PHP 8.1/8.2/8.3, smoke-тест сервера, `composer audit`, автосборка Docker-образа, Dependabot |

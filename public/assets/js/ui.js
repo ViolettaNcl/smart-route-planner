@@ -43,7 +43,7 @@ function setTheme(theme) {
 
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', normalized === 'light' ? '#edf7ee' : '#07130f');
+        themeColorMeta.setAttribute('content', normalized === 'light' ? '#eef0f4' : '#14171c');
     }
 
     // Перекрашиваем подложку карты вслед за темой интерфейса, если карта уже создана.
@@ -141,47 +141,12 @@ function ensureRouteTerrainLayers() {
             },
             paint: {
                 'hillshade-illumination-direction': 315,
-                'hillshade-exaggeration': dark ? 0.42 : 0.32,
-                'hillshade-shadow-color': dark ? 'rgba(3, 23, 16, 0.78)' : 'rgba(55, 92, 67, 0.3)',
-                'hillshade-highlight-color': dark ? 'rgba(178, 247, 177, 0.3)' : 'rgba(255, 255, 238, 0.7)',
-                'hillshade-accent-color': dark ? 'rgba(66, 214, 177, 0.34)' : 'rgba(55, 145, 93, 0.2)',
+                'hillshade-exaggeration': dark ? 0.34 : 0.26,
+                'hillshade-shadow-color': dark ? 'rgba(5, 12, 20, 0.72)' : 'rgba(63, 67, 82, 0.32)',
+                'hillshade-highlight-color': dark ? 'rgba(103, 232, 219, 0.24)' : 'rgba(255, 255, 255, 0.58)',
+                'hillshade-accent-color': dark ? 'rgba(167, 139, 250, 0.26)' : 'rgba(124, 58, 237, 0.15)',
             },
         }, beforeId);
-    }
-}
-
-function syncRouteMapAtmosphere(use3d) {
-    if (typeof routeMap === 'undefined' || !routeMap) return;
-
-    const dark = getTheme() === 'dark';
-
-    if (typeof routeMap.setSky === 'function') {
-        try {
-            routeMap.setSky(use3d ? {
-                'sky-color': dark ? '#376f66' : '#b9e2d1',
-                'horizon-color': dark ? '#17382f' : '#e8f3d7',
-                'fog-color': dark ? '#0b221b' : '#f4f4d9',
-                'sky-horizon-blend': 0.46,
-                'horizon-fog-blend': 0.7,
-                'fog-ground-blend': 0.64,
-                'atmosphere-blend': 0.82,
-            } : null);
-        } catch (e) {
-            // Atmosphere is progressive enhancement; terrain and buildings remain.
-        }
-    }
-
-    if (typeof routeMap.setLight === 'function') {
-        try {
-            routeMap.setLight({
-                anchor: 'viewport',
-                color: dark ? '#d8ffd7' : '#fff7d4',
-                intensity: use3d ? 0.52 : 0.34,
-                position: [1.25, 205, 38],
-            });
-        } catch (e) {
-            // Older style implementations may not expose configurable light.
-        }
     }
 }
 
@@ -204,7 +169,7 @@ function syncRouteMapDepth() {
     if (hasTerrain && typeof routeMap.setTerrain === 'function') {
         try {
             routeMap.setTerrain(use3d
-                ? { source: ROUTE_TERRAIN_SOURCE_ID, exaggeration: 1.34 }
+                ? { source: ROUTE_TERRAIN_SOURCE_ID, exaggeration: 1.16 }
                 : null);
         } catch (e) {
             // Fallback: если конкретная версия MapLibre не принимает null,
@@ -226,8 +191,6 @@ function syncRouteMapDepth() {
             use3d ? 'visible' : 'none'
         );
     }
-
-    syncRouteMapAtmosphere(use3d);
 }
 
 // app.js загружен раньше ui.js, поэтому мы аккуратно расширяем уже существующие
@@ -285,8 +248,8 @@ function parseRouteJson(raw) {
 }
 
 function renderMapFallback(coords, labels, routeGeometry) {
-    if (typeof renderStaticRouteMap !== 'function') {
-        throw new Error('Static map fallback is unavailable');
+    if (typeof maplibregl === 'undefined') {
+        throw new Error('MapLibre is not loaded');
     }
 
     try {
@@ -294,11 +257,77 @@ function renderMapFallback(coords, labels, routeGeometry) {
             routeMap.remove();
         }
     } catch (ignored) {
-        // A partially-created WebGL map can be discarded before SVG fallback.
+        // A partially-created WebGL map may fail during remove(); rebuilding
+        // the container is enough for the fallback instance.
     }
 
     routeMap = null;
-    return renderStaticRouteMap(coords, labels, routeGeometry);
+    mapContainer.innerHTML = '';
+    hide(mapPlaceholder);
+    show(mapContainer);
+    show(mapModeControl);
+
+    const first = coords[0] || { lon: 14, lat: 48 };
+    routeMap = new maplibregl.Map({
+        container: 'map',
+        style: MAP_STYLES[currentMapTheme()],
+        center: [Number(first.lon), Number(first.lat)],
+        zoom: 5,
+        pitch: currentMapMode === '3d' ? 48 : 0,
+        bearing: currentMapMode === '3d' ? -15 : 0,
+        attributionControl: false,
+        canvasContextAttributes: { antialias: true },
+    });
+
+    routeMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+    routeMap.addControl(new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution: 'OpenFreeMap · OpenStreetMap',
+    }), 'bottom-right');
+
+    routeMap.on('load', () => {
+        try {
+            routeMap.addSource('route-fallback-geometry', {
+                type: 'geojson',
+                data: routeGeoJson(routeGeometry),
+            });
+            routeMap.addLayer({
+                id: 'route-fallback-glow',
+                type: 'line',
+                source: 'route-fallback-geometry',
+                paint: {
+                    'line-color': '#43e3d4',
+                    'line-width': 10,
+                    'line-opacity': 0.2,
+                    'line-blur': 4,
+                },
+            });
+            routeMap.addLayer({
+                id: 'route-fallback-line',
+                type: 'line',
+                source: 'route-fallback-geometry',
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: {
+                    'line-color': '#61c7f2',
+                    'line-width': 5,
+                    'line-opacity': 0.98,
+                },
+            });
+
+            renderRouteMarkers(coords, labels);
+            const bounds = new maplibregl.LngLatBounds();
+            coords.forEach((coord) => bounds.extend([Number(coord.lon), Number(coord.lat)]));
+            routeMap.fitBounds(bounds, {
+                padding: { top: 72, right: 64, bottom: 72, left: 64 },
+                maxZoom: 14,
+                duration: 900,
+            });
+        } catch (error) {
+            console.error('[Smart Route Planner] Minimal map fallback failed:', error);
+        }
+    });
+
+    return routeMap;
 }
 
 if (typeof renderMap === 'function') {
