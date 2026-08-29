@@ -212,6 +212,206 @@ if (typeof restoreMapLayers === 'function' && typeof applyMapMode === 'function'
     };
 }
 
+/* ------------------------------------------------------------------ *
+ * Production hardening for route rendering.
+ *
+ * The route API can return HTTP 200 and valid JSON while a client-side map
+ * rendering exception happens afterwards. app.js historically wrapped both
+ * phases in one try/catch, so any UI exception was incorrectly shown as
+ * "Could not reach the server". Keep transport/parsing/rendering failures
+ * separate and make the map fall back to a minimal MapLibre renderer.
+ * ------------------------------------------------------------------ */
+
+function routeUiMessage(ru, en) {
+    return typeof getLang === 'function' && getLang() === 'en' ? en : ru;
+}
+
+function parseRouteJson(raw) {
+    const normalized = String(raw || '').replace(/^\uFEFF/, '').trim();
+    if (!normalized) {
+        throw new Error('Route API returned an empty body');
+    }
+
+    try {
+        return JSON.parse(normalized);
+    } catch (firstError) {
+        // If a PHP runtime prepended a warning/notice despite production
+        // settings, recover the JSON object instead of treating it as a
+        // network outage. The original body is still logged for diagnostics.
+        const start = normalized.indexOf('{');
+        const end = normalized.lastIndexOf('}');
+        if (start >= 0 && end > start) {
+            return JSON.parse(normalized.slice(start, end + 1));
+        }
+        throw firstError;
+    }
+}
+
+function renderMapFallback(coords, labels, routeGeometry) {
+    if (typeof maplibregl === 'undefined') {
+        throw new Error('MapLibre is not loaded');
+    }
+
+    try {
+        if (typeof routeMap !== 'undefined' && routeMap && typeof routeMap.remove === 'function') {
+            routeMap.remove();
+        }
+    } catch (ignored) {
+        // A partially-created WebGL map may fail during remove(); rebuilding
+        // the container is enough for the fallback instance.
+    }
+
+    routeMap = null;
+    mapContainer.innerHTML = '';
+    hide(mapPlaceholder);
+    show(mapContainer);
+    show(mapModeControl);
+
+    const first = coords[0] || { lon: 14, lat: 48 };
+    routeMap = new maplibregl.Map({
+        container: 'map',
+        style: MAP_STYLES[currentMapTheme()],
+        center: [Number(first.lon), Number(first.lat)],
+        zoom: 5,
+        pitch: currentMapMode === '3d' ? 48 : 0,
+        bearing: currentMapMode === '3d' ? -15 : 0,
+        attributionControl: false,
+        canvasContextAttributes: { antialias: true },
+    });
+
+    routeMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+    routeMap.addControl(new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution: 'OpenFreeMap · OpenStreetMap',
+    }), 'bottom-right');
+
+    routeMap.on('load', () => {
+        try {
+            routeMap.addSource('route-fallback-geometry', {
+                type: 'geojson',
+                data: routeGeoJson(routeGeometry),
+            });
+            routeMap.addLayer({
+                id: 'route-fallback-glow',
+                type: 'line',
+                source: 'route-fallback-geometry',
+                paint: {
+                    'line-color': '#43e3d4',
+                    'line-width': 10,
+                    'line-opacity': 0.2,
+                    'line-blur': 4,
+                },
+            });
+            routeMap.addLayer({
+                id: 'route-fallback-line',
+                type: 'line',
+                source: 'route-fallback-geometry',
+                layout: { 'line-cap': 'round', 'line-join': 'round' },
+                paint: {
+                    'line-color': '#61c7f2',
+                    'line-width': 5,
+                    'line-opacity': 0.98,
+                },
+            });
+
+            renderRouteMarkers(coords, labels);
+            const bounds = new maplibregl.LngLatBounds();
+            coords.forEach((coord) => bounds.extend([Number(coord.lon), Number(coord.lat)]));
+            routeMap.fitBounds(bounds, {
+                padding: { top: 72, right: 64, bottom: 72, left: 64 },
+                maxZoom: 14,
+                duration: 900,
+            });
+        } catch (error) {
+            console.error('[Smart Route Planner] Minimal map fallback failed:', error);
+        }
+    });
+
+    return routeMap;
+}
+
+if (typeof renderMap === 'function') {
+    const renderMapBase = renderMap;
+    renderMap = function (coords, labels, routeGeometry) {
+        try {
+            return renderMapBase(coords, labels, routeGeometry);
+        } catch (error) {
+            console.error('[Smart Route Planner] Primary map renderer failed, using fallback:', error);
+            return renderMapFallback(coords, labels, routeGeometry);
+        }
+    };
+}
+
+if (typeof calculateRoute === 'function') {
+    calculateRoute = async function (points) {
+        hide(errorBanner);
+        hide(warningBanner);
+        setLoading(true);
+
+        const body = new URLSearchParams();
+        body.set('points', points);
+        body.set('fuel_price_per_liter', costFuelPrice.value);
+        body.set('fuel_consumption_l_100km', costFuelConsumption.value);
+        body.set('ticket_price_per_km', costTicketPrice.value);
+        body.set('model_variant', getAbVariant());
+
+        let response;
+        try {
+            response = await fetch('/api/route.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: body.toString(),
+            });
+        } catch (error) {
+            console.error('[Smart Route Planner] Route request failed:', error);
+            showError(t('genericNetworkError'));
+            setLoading(false);
+            return;
+        }
+
+        let raw;
+        try {
+            raw = await response.text();
+        } catch (error) {
+            console.error('[Smart Route Planner] Could not read route response:', error);
+            showError(t('genericNetworkError'));
+            setLoading(false);
+            return;
+        }
+
+        let data;
+        try {
+            data = parseRouteJson(raw);
+        } catch (error) {
+            console.error('[Smart Route Planner] Route API returned invalid JSON:', error, raw);
+            showError(routeUiMessage(
+                'Сервер ответил, но вернул некорректные данные. Обновите страницу и попробуйте ещё раз.',
+                'The server responded, but returned invalid data. Refresh the page and try again.'
+            ));
+            setLoading(false);
+            return;
+        }
+
+        if (!response.ok || !data.ok) {
+            showError(translateError(data.error_code, data.error));
+            setLoading(false);
+            return;
+        }
+
+        try {
+            renderResult(data);
+        } catch (error) {
+            console.error('[Smart Route Planner] Route calculated, UI rendering failed:', error, data);
+            showError(routeUiMessage(
+                'Маршрут рассчитан, но интерфейс карты столкнулся с ошибкой. Попробуйте переключить 2D/3D или обновить страницу.',
+                'The route was calculated, but the map UI hit an error. Try switching 2D/3D or refresh the page.'
+            ));
+        } finally {
+            setLoading(false);
+        }
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initResultTabs();
