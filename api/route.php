@@ -5,9 +5,8 @@ declare(strict_types=1);
 /**
  * Dedicated Vercel entry point for the main route calculation.
  *
- * The web UI calls /api/route.php, which maps directly to this serverless
- * function. Keeping the route endpoint as a real function avoids overlapping
- * rewrite rules while the remaining API endpoints stay behind api/index.php.
+ * The implementation is stored outside any /api directory so Vercel does
+ * not auto-detect it as another Serverless Function on the Hobby plan.
  */
 
 ini_set('display_errors', '0');
@@ -54,7 +53,7 @@ register_shutdown_function(static function () use (&$completed): void {
 });
 
 try {
-    require dirname(__DIR__) . '/public/api/route.php';
+    require dirname(__DIR__) . '/server/endpoints/route.php';
     $completed = true;
 
     if (ob_get_level() > 0) {

@@ -3,28 +3,21 @@
 /**
  * Single Vercel PHP front controller.
  *
- * The Hobby plan allows at most 12 Serverless Functions per deployment, so
- * every public API endpoint is routed through this one function. The actual
- * endpoint scripts remain in public/api/ and still work unchanged on Apache,
- * XAMPP, Docker, and PHP's built-in server.
+ * All public API endpoints are routed through this one function so the
+ * Vercel Hobby deployment stays well below the Serverless Function limit.
+ * Endpoint implementations live outside any /api directory to prevent
+ * Vercel from auto-detecting each implementation file as a separate function.
  */
 
 $projectRoot = dirname(__DIR__);
 $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
 $requestPath = (string) (parse_url($requestUri, PHP_URL_PATH) ?: '/');
 
-// Vercel normally passes ?home=1 from vercel.json. Keep a REQUEST_URI fallback
-// as well, because some runtime/router combinations do not expose rewrite query
-// parameters exactly like a normal web server would.
 if (($_GET['home'] ?? null) === '1' || $requestPath === '/') {
     require $projectRoot . '/public/index.php';
     return;
 }
 
-// Primary dispatch comes from ?endpoint=$1 in vercel.json. If that value is
-// missing, derive the endpoint from /api/<name>.php so API requests still work
-// instead of falling through to a Vercel/HTML 404 response that the frontend
-// cannot parse as JSON.
 $requestedEndpoint = $_GET['endpoint'] ?? '';
 $requestedEndpoint = is_string($requestedEndpoint) ? trim($requestedEndpoint) : '';
 
@@ -65,7 +58,7 @@ if (!in_array($requestedEndpoint, $endpoints, true)) {
 }
 
 try {
-    require $projectRoot . '/public/api/' . $requestedEndpoint . '.php';
+    require $projectRoot . '/server/endpoints/' . $requestedEndpoint . '.php';
 } catch (\Throwable $e) {
     error_log('[smart-route-planner front controller] ' . $requestedEndpoint . ': ' . $e->getMessage());
 
