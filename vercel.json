@@ -4,12 +4,17 @@
     "api/index.php": {
       "runtime": "vercel-php@0.7.4",
       "maxDuration": 30
+    },
+    "api/route-direct.php": {
+      "runtime": "vercel-php@0.7.4",
+      "maxDuration": 30
     }
   },
   "routes": [
     { "src": "/assets/(.*)", "dest": "/public/assets/$1" },
     { "src": "/manifest.webmanifest", "dest": "/public/manifest.webmanifest" },
     { "src": "/service-worker.js", "dest": "/public/service-worker.js" },
+    { "src": "/api/route\\.php", "dest": "/api/route-direct.php" },
     { "src": "/api/(.*)", "dest": "/api/index.php?endpoint=$1" },
     { "src": "/", "dest": "/api/index.php?home=1" }
   ]
