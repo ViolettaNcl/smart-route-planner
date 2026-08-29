@@ -110,8 +110,11 @@ What this project is meant to demonstrate:
   hotels) via the free Overpass API — no API key required.
 - **Weather along the route** via Open-Meteo (no key) — flags heavy rain,
   extreme heat, freezing temperatures, or storms at each stop.
-- **Interactive MapLibre map** — keyless OpenFreeMap vector tiles, numbered
-  markers, real road geometry, and a 2D ⇄ 3D switch with extruded buildings.
+- **Nature-styled MapLibre map** — keyless OpenFreeMap Fiord/Liberty vector
+  styles, greener parks and forests, numbered markers, real road geometry,
+  and a 2D ⇄ 3D switch with Mapterhorn terrain, atmosphere, and extruded
+  buildings. Devices without WebGL receive a polished SVG route fallback
+  instead of an empty panel.
 - **Shareable route links with no database** — the entire route is encoded
   directly into the URL; opening the link recalculates and displays the trip
   immediately.
@@ -216,7 +219,7 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | Machine learning | MLP (hidden layer + backprop from scratch) and softmax regression — gradient descent, cross-entropy loss; K-Means (Lloyd's algorithm, from scratch) — unsupervised day-plan clustering |
 | AI assistant | Vercel AI Gateway (OIDC), Anthropic/OpenAI fallback, rule-based offline fallback |
 | Geodata | Overpass API (points of interest), Open-Meteo (weather) — both keyless |
-| Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap (keyless 2D/3D vector map), Chart.js, CSS custom properties (theming) |
+| Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap Fiord/Liberty + Mapterhorn terrain (keyless 2D/3D map), SVG fallback, Chart.js, CSS custom properties (theming) |
 | Testing | A minimal custom test runner (no dependencies); HTTP integration tests via `php -S` |
 | Rate limiting | Token bucket from scratch (`App\Http\RateLimiter`), file storage with `flock` |
 | CI/CD | GitHub Actions — lint + tests on PHP 8.1/8.2/8.3, server smoke test, `composer audit`, automated Docker build, Dependabot |
