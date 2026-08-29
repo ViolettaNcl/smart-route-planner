@@ -37,8 +37,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="assets/css/route.css">
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+    <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
 <body>
@@ -143,6 +142,16 @@
         </div>
 
         <div class="map-panel">
+            <div id="map-mode-control" class="map-mode-control hidden" role="group" data-i18n-aria-label="mapModeLabel">
+                <button type="button" class="map-mode-btn" data-map-mode="2d" aria-pressed="false">
+                    <span class="map-mode-icon" aria-hidden="true">▱</span>
+                    <span>2D</span>
+                </button>
+                <button type="button" class="map-mode-btn" data-map-mode="3d" aria-pressed="true">
+                    <span class="map-mode-icon map-mode-icon-3d" aria-hidden="true">◇</span>
+                    <span>3D</span>
+                </button>
+            </div>
             <div id="map-placeholder" class="map-placeholder" data-i18n="mapPlaceholder">
                 Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.
             </div>
@@ -301,8 +310,7 @@
     <button type="button" id="install-button" class="install-btn hidden" data-i18n="installApp">⬇️ Установить приложение</button>
 </div>
 
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
 <script src="assets/js/i18n.js"></script>
 <script src="assets/js/ml_boundary.js"></script>
 <script src="assets/js/app.js"></script>

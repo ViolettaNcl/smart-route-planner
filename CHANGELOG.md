@@ -6,6 +6,9 @@
 ## [Unreleased]
 
 ### Added
+- Векторная карта MapLibre GL JS на бесплатных данных OpenFreeMap без
+  API-ключа: режимы 2D/3D, объёмные здания, плавная камера и новый светящийся
+  градиент маршрута.
 - Production-конфигурация Vercel Functions с PHP 8.3 front controller и новым
   live demo URL.
 - Интеграция Vercel AI Gateway: на Vercel используется автоматически
@@ -39,6 +42,8 @@
   форматирование независимо от ОС/IDE разработчика.
 
 ### Fixed
+- Убран водяной знак `API KEY REQUIRED` от прежнего raster-провайдера карты;
+  слой больше не зависит от коммерческого токена.
 - Vercel Hobby build больше не превышает лимит в 12 Serverless Functions:
   все HTTP-эндпоинты обслуживает один PHP front controller.
 - Несовпадающий PHPDoc-тип константы `WEATHER_CODES` в `OpenMeteoClient`.

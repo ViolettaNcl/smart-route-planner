@@ -41,6 +41,8 @@ const I18N = {
         shareCopied: '🔗 Ссылка скопирована в буфер обмена!',
         shareCopyFailed: (url) => `Не удалось скопировать автоматически: ${url}`,
         mapPlaceholder: 'Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.',
+        mapModeLabel: 'Режим отображения карты',
+        mapWebglError: '3D-карта недоступна в этом браузере. Включите аппаратное ускорение или откройте сайт в современном браузере.',
         skippedWarning: (list) => `⚠️ Не удалось распознать: ${list.join(', ')} — эти точки пропущены.`,
         genericNetworkError: 'Не удалось связаться с сервером. Проверьте соединение и попробуйте ещё раз.',
         genericRouteError: 'Не удалось построить маршрут.',
@@ -194,6 +196,8 @@ const I18N = {
         shareCopied: '🔗 Link copied to clipboard!',
         shareCopyFailed: (url) => `Could not copy automatically: ${url}`,
         mapPlaceholder: 'Enter cities and click "Calculate route" — the optimized route will appear here on the map.',
+        mapModeLabel: 'Map display mode',
+        mapWebglError: 'The 3D map is unavailable in this browser. Enable hardware acceleration or open the site in a modern browser.',
         skippedWarning: (list) => `⚠️ Could not recognize: ${list.join(', ')} — these stops were skipped.`,
         genericNetworkError: 'Could not reach the server. Check your connection and try again.',
         genericRouteError: 'Could not build the route.',
@@ -368,6 +372,14 @@ function applyTranslations() {
         const value = t(key);
         if (typeof value === 'string') {
             el.placeholder = value;
+        }
+    });
+
+    document.querySelectorAll('[data-i18n-aria-label]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-aria-label');
+        const value = t(key);
+        if (typeof value === 'string') {
+            el.setAttribute('aria-label', value);
         }
     });
 

@@ -4,7 +4,8 @@
  * Форма отправляется через fetch на api/route.php, без перезагрузки страницы.
  * Ответ — JSON с оптимизированным порядком точек, координатами, реальной
  * дорожной геометрией (если доступен OSRM), временем в пути, стоимостью
- * поездки и предсказанным транспортом. Карта строится через Leaflet.
+ * поездки и предсказанным транспортом. Карта строится через MapLibre GL JS
+ * на бесплатных векторных данных OpenFreeMap — без API-ключа.
  *
  * Дополнительно:
  * - ссылка-шеринг маршрута кодирует введённые города прямо в URL (base64) —
@@ -29,59 +30,50 @@ const suggestionsList = document.getElementById('suggestions');
 const costFuelPrice = document.getElementById('cost-fuel-price');
 const costFuelConsumption = document.getElementById('cost-fuel-consumption');
 const costTicketPrice = document.getElementById('cost-ticket-price');
+const mapModeControl = document.getElementById('map-mode-control');
 
-let leafletMap = null;
-let routeLayer = null;
-let poiLayer = null;
+let routeMap = null;
+let routeMarkers = [];
+let poiMarkers = [];
 let poiVisible = false;
 let poiFetchedForRoute = null; // хранит JSON.stringify(coords) маршрута, для которого уже запрашивали POI
 let lastRouteData = null;
+let lastMapRender = null;
 
-// --- цветовой градиент линии маршрута: тил → янтарь → коралл, чтобы трек
-// выглядел ярче и "живее" плоской одноцветной линии ---
-function lerpHexColor(hexA, hexB, t) {
-    const a = hexA.match(/\w\w/g).map((x) => parseInt(x, 16));
-    const b = hexB.match(/\w\w/g).map((x) => parseInt(x, 16));
-    const mix = a.map((c, i) => Math.round(c + (b[i] - c) * t));
-    return '#' + mix.map((c) => c.toString(16).padStart(2, '0')).join('');
-}
+const MAP_MODE_STORAGE_KEY = 'srp_map_mode';
+const ROUTE_SOURCE_ID = 'route-geometry';
+const ROUTE_GLOW_LAYER_ID = 'route-glow';
+const ROUTE_LINE_LAYER_ID = 'route-line';
+const BUILDINGS_SOURCE_ID = 'openfreemap-buildings';
+const BUILDINGS_LAYER_ID = 'route-map-3d-buildings';
 
-function routeGradientColorAt(t) {
-    if (t < 0.5) {
-        return lerpHexColor('#4fd1c5', '#f5a623', t / 0.5);
+let currentMapMode = (() => {
+    try {
+        return localStorage.getItem(MAP_MODE_STORAGE_KEY) === '2d' ? '2d' : '3d';
+    } catch (e) {
+        return '3d';
     }
-    return lerpHexColor('#f5a623', '#ff7b72', (t - 0.5) / 0.5);
-}
+})();
 
-// --- тайлы карты, зависящие от темы интерфейса (см. также ui.js) ---
-let tileLayerRef = null;
-
-const MAP_TILE_URLS = {
-    dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-    light: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+// Векторные стили OpenFreeMap работают без регистрации и API-ключа.
+// Они заменяют старые raster-тайлы, на которых провайдер начал показывать
+// водяной знак API KEY REQUIRED.
+const MAP_STYLES = {
+    dark: 'https://tiles.openfreemap.org/styles/dark',
+    light: 'https://tiles.openfreemap.org/styles/positron',
 };
 
 function currentMapTheme() {
     return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
 
-function addMapTileLayer(theme) {
-    tileLayerRef = L.tileLayer(MAP_TILE_URLS[theme] || MAP_TILE_URLS.dark, {
-        attribution: '© OpenStreetMap contributors © CARTO',
-        maxZoom: 19,
-        subdomains: 'abcd',
-    }).addTo(leafletMap);
-}
-
 // Вызывается из ui.js при переключении светлой/тёмной темы, чтобы перекрасить
-// подложку карты вслед за интерфейсом (тёмные тайлы на светлом фоне и наоборот
-// выглядят чужеродно).
+// карту вслед за интерфейсом. После смены стиля восстанавливаются 3D-здания
+// и линия уже рассчитанного маршрута.
 window.setMapTileTheme = function (theme) {
-    if (!leafletMap) return;
-    if (tileLayerRef) {
-        leafletMap.removeLayer(tileLayerRef);
-    }
-    addMapTileLayer(theme === 'light' ? 'light' : 'dark');
+    if (!routeMap) return;
+    const normalized = theme === 'light' ? 'light' : 'dark';
+    routeMap.setStyle(MAP_STYLES[normalized]);
 };
 
 /**
@@ -344,9 +336,9 @@ poiButton.addEventListener('click', async () => {
 
     const routeKey = JSON.stringify(lastRouteData.coords);
 
-    if (poiLayer && poiFetchedForRoute === routeKey) {
+    if (poiMarkers.length > 0 && poiFetchedForRoute === routeKey) {
         // Уже загружали POI для этого маршрута — просто показываем заново.
-        poiLayer.addTo(leafletMap);
+        poiMarkers.forEach((marker) => marker.addTo(routeMap));
         poiVisible = true;
         poiButton.textContent = t('poiButtonHide');
         return;
@@ -394,35 +386,31 @@ poiButton.addEventListener('click', async () => {
 });
 
 function renderPoiMarkers(pointsWithPlaces) {
-    if (poiLayer) {
-        leafletMap.removeLayer(poiLayer);
-    }
-
-    poiLayer = L.layerGroup();
+    poiMarkers.forEach((marker) => marker.remove());
+    poiMarkers = [];
     const categoryLabels = t('poiCategoryLabels');
 
     pointsWithPlaces.forEach((point) => {
         point.places.forEach((place) => {
-            const icon = L.divIcon({
-                html: '<span class="poi-marker-icon">' + place.icon + '</span>',
-                className: 'poi-marker',
-                iconSize: [26, 26],
-            });
+            const element = document.createElement('div');
+            element.className = 'poi-marker';
+            element.innerHTML = '<span class="poi-marker-icon">' + place.icon + '</span>';
 
-            L.marker([place.lat, place.lon], { icon })
-                .bindPopup('<strong>' + escapeHtml(place.name) + '</strong><br>'
-                    + (categoryLabels[place.category] || place.label_ru))
-                .addTo(poiLayer);
+            const popup = new maplibregl.Popup({ offset: 18, closeButton: false })
+                .setHTML('<strong>' + escapeHtml(place.name) + '</strong><br>'
+                    + escapeHtml(categoryLabels[place.category] || place.label_ru));
+
+            const marker = new maplibregl.Marker({ element, anchor: 'center' })
+                .setLngLat([place.lon, place.lat])
+                .setPopup(popup)
+                .addTo(routeMap);
+            poiMarkers.push(marker);
         });
     });
-
-    poiLayer.addTo(leafletMap);
 }
 
 function hidePoiLayer() {
-    if (poiLayer) {
-        leafletMap.removeLayer(poiLayer);
-    }
+    poiMarkers.forEach((marker) => marker.remove());
     poiVisible = false;
     poiButton.textContent = t('poiButton');
 }
@@ -434,10 +422,8 @@ function resetExplainState() {
 }
 
 function resetPoiState() {
-    if (poiLayer) {
-        leafletMap.removeLayer(poiLayer);
-    }
-    poiLayer = null;
+    poiMarkers.forEach((marker) => marker.remove());
+    poiMarkers = [];
     poiVisible = false;
     poiFetchedForRoute = null;
     poiButton.disabled = false;
@@ -454,103 +440,261 @@ function formatNumber(n) {
     return new Intl.NumberFormat(getLang() === 'en' ? 'en-US' : 'ru-RU').format(n);
 }
 
-function renderMap(coords, labels, routeGeometry) {
-    hide(mapPlaceholder);
-    show(mapContainer);
+function findFirstLabelLayerId() {
+    if (!routeMap || !routeMap.getStyle()) return undefined;
+    const layers = routeMap.getStyle().layers || [];
+    const labelLayer = layers.find((layer) => layer.type === 'symbol' && layer.layout && layer.layout['text-field']);
+    return labelLayer ? labelLayer.id : undefined;
+}
 
-    if (!leafletMap) {
-        // Тёмные тайлы (CartoDB Dark Matter, бесплатно, без ключа) — вместо
-        // стандартных светлых тайлов OSM, которые визуально спорили с тёмной
-        // темой интерфейса. Атрибуция OpenStreetMap обязательна по лицензии
-        // ODbL и остаётся; убран только необязательный префикс "Leaflet"
-        // (в него по умолчанию добавлен флаг Украины — решение мейнтейнера
-        // библиотеки, а не требование лицензии), чтобы в UI не было
-        // политической символики, никак не связанной с сутью проекта.
-        leafletMap = L.map('map', { attributionControl: false });
-        L.control.attribution({ prefix: false }).addTo(leafletMap);
+function add3dBuildingsLayer() {
+    if (!routeMap || routeMap.getLayer(BUILDINGS_LAYER_ID)) return;
 
-        addMapTileLayer(currentMapTheme());
+    if (!routeMap.getSource(BUILDINGS_SOURCE_ID)) {
+        routeMap.addSource(BUILDINGS_SOURCE_ID, {
+            type: 'vector',
+            url: 'https://tiles.openfreemap.org/planet',
+        });
     }
 
-    // Карта могла быть инициализирована до того, как секция получила
-    // окончательные размеры в новом layout — пересчитываем размер тайлов.
-    setTimeout(() => leafletMap.invalidateSize(), 0);
+    const dark = currentMapTheme() === 'dark';
+    routeMap.addLayer({
+        id: BUILDINGS_LAYER_ID,
+        source: BUILDINGS_SOURCE_ID,
+        'source-layer': 'building',
+        type: 'fill-extrusion',
+        minzoom: 13.5,
+        filter: ['!=', ['get', 'hide_3d'], true],
+        layout: {
+            visibility: currentMapMode === '3d' ? 'visible' : 'none',
+        },
+        paint: {
+            'fill-extrusion-color': [
+                'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0],
+                0, dark ? '#293340' : '#d7dbe5',
+                80, dark ? '#59677b' : '#aeb8cb',
+                240, dark ? '#b59df8' : '#8870c9',
+            ],
+            'fill-extrusion-height': [
+                'interpolate', ['linear'], ['zoom'],
+                13.5, 0,
+                15, ['coalesce', ['get', 'render_height'], 8],
+            ],
+            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+            'fill-extrusion-opacity': dark ? 0.78 : 0.7,
+            'fill-extrusion-vertical-gradient': true,
+        },
+    }, findFirstLabelLayerId());
+}
 
-    if (routeLayer) {
-        leafletMap.removeLayer(routeLayer);
+function routeGeoJson(routeGeometry) {
+    return {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+            type: 'LineString',
+            coordinates: routeGeometry.map((point) => Array.isArray(point)
+                ? [Number(point[1]), Number(point[0])]
+                : [Number(point.lon), Number(point.lat)]),
+        },
+    };
+}
+
+function addRouteLayers() {
+    if (!routeMap || !lastMapRender || routeMap.getSource(ROUTE_SOURCE_ID)) return;
+
+    routeMap.addSource(ROUTE_SOURCE_ID, {
+        type: 'geojson',
+        data: routeGeoJson(lastMapRender.routeGeometry),
+        lineMetrics: true,
+    });
+
+    const beforeId = findFirstLabelLayerId();
+    routeMap.addLayer({
+        id: ROUTE_GLOW_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+        },
+        paint: {
+            'line-color': '#43e3d4',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 8, 10, 13, 16, 20],
+            'line-opacity': 0.24,
+            'line-blur': 5,
+        },
+    }, beforeId);
+
+    routeMap.addLayer({
+        id: ROUTE_LINE_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+        },
+        paint: {
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 3, 10, 5, 16, 8],
+            'line-opacity': 0.98,
+            'line-gradient': [
+                'interpolate', ['linear'], ['line-progress'],
+                0, '#4fe4d7',
+                0.48, '#61c7f2',
+                0.72, '#ffc85b',
+                1, '#ff7b8a',
+            ],
+        },
+    }, beforeId);
+}
+
+function restoreMapLayers() {
+    if (!routeMap || !routeMap.isStyleLoaded()) return;
+    add3dBuildingsLayer();
+    addRouteLayers();
+    applyMapMode(false);
+}
+
+function updateMapModeButtons() {
+    document.querySelectorAll('[data-map-mode]').forEach((button) => {
+        const active = button.dataset.mapMode === currentMapMode;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+}
+
+function applyMapMode(animate = true) {
+    updateMapModeButtons();
+    if (!routeMap) return;
+
+    if (routeMap.getLayer(BUILDINGS_LAYER_ID)) {
+        routeMap.setLayoutProperty(
+            BUILDINGS_LAYER_ID,
+            'visibility',
+            currentMapMode === '3d' ? 'visible' : 'none'
+        );
     }
 
-    const group = L.featureGroup();
+    routeMap.easeTo({
+        pitch: currentMapMode === '3d' ? 52 : 0,
+        bearing: currentMapMode === '3d' ? -18 : 0,
+        duration: animate ? 750 : 0,
+        essential: true,
+    });
+}
 
-    // Маркеры пронумерованы и оформлены так же, как список городов в
-    // сайдбаре (кружок + моно-номер) — карта и список читаются как единая
-    // система. Старт и финиш дополнительно выделены цветом/иконкой и
-    // пульсирующим кольцом (см. CSS), чтобы маршрут читался с первого взгляда.
-    coords.forEach((c, i) => {
-        const isStart = i === 0;
-        const isEnd = i === coords.length - 1 && coords.length > 1;
+function setMapMode(mode) {
+    currentMapMode = mode === '2d' ? '2d' : '3d';
+    try {
+        localStorage.setItem(MAP_MODE_STORAGE_KEY, currentMapMode);
+    } catch (e) {
+        // Карта продолжает работать, даже если браузер запретил localStorage.
+    }
+    applyMapMode(true);
+}
 
+document.querySelectorAll('[data-map-mode]').forEach((button) => {
+    button.addEventListener('click', () => setMapMode(button.dataset.mapMode));
+});
+updateMapModeButtons();
+
+function createRouteMap() {
+    if (typeof maplibregl === 'undefined' || !maplibregl.supported()) {
+        hide(mapModeControl);
+        mapContainer.innerHTML = '<div class="map-webgl-error">' + escapeHtml(t('mapWebglError')) + '</div>';
+        return null;
+    }
+
+    routeMap = new maplibregl.Map({
+        container: 'map',
+        style: MAP_STYLES[currentMapTheme()],
+        center: [14, 48],
+        zoom: 4,
+        pitch: currentMapMode === '3d' ? 52 : 0,
+        bearing: currentMapMode === '3d' ? -18 : 0,
+        attributionControl: false,
+        canvasContextAttributes: { antialias: true },
+    });
+
+    routeMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
+    routeMap.addControl(new maplibregl.AttributionControl({
+        compact: true,
+        customAttribution: 'OpenFreeMap · OpenMapTiles · OpenStreetMap',
+    }), 'bottom-right');
+
+    routeMap.on('style.load', restoreMapLayers);
+    routeMap.on('error', (event) => {
+        if (event && event.error) {
+            console.warn('MapLibre:', event.error.message || event.error);
+        }
+    });
+
+    return routeMap;
+}
+
+function renderRouteMarkers(coords, labels) {
+    routeMarkers.forEach((marker) => marker.remove());
+    routeMarkers = [];
+
+    coords.forEach((coord, index) => {
+        const isStart = index === 0;
+        const isEnd = index === coords.length - 1 && coords.length > 1;
         let badgeClass = 'route-marker-badge';
-        let content = String(i + 1);
-        let size = 26;
+        let content = String(index + 1);
+
         if (isStart) {
             badgeClass += ' route-marker-start';
             content = '🚩';
-            size = 30;
         } else if (isEnd) {
             badgeClass += ' route-marker-end';
             content = '🏁';
-            size = 30;
         }
 
-        const icon = L.divIcon({
-            html: '<span class="' + badgeClass + '" style="animation-delay:' + (i * 55) + 'ms">' + content + '</span>',
-            className: 'route-marker',
-            iconSize: [size, size],
-            iconAnchor: [size / 2, size / 2],
-        });
+        const element = document.createElement('div');
+        element.className = 'route-marker';
+        element.innerHTML = '<span class="' + badgeClass + '" style="animation-delay:'
+            + (index * 55) + 'ms">' + content + '</span>';
 
-        L.marker([c.lat, c.lon], { icon, riseOnHover: true })
-            .bindPopup(
-                '<div class="route-popup"><span class="route-popup-index">' + (i + 1) +
-                '</span><span class="route-popup-label">' + escapeHtml(labels[i]) + '</span></div>'
-            )
-            .addTo(group);
+        const popup = new maplibregl.Popup({ offset: 22, closeButton: false })
+            .setHTML('<div class="route-popup"><span class="route-popup-index">' + (index + 1)
+                + '</span><span class="route-popup-label">' + escapeHtml(labels[index]) + '</span></div>');
+
+        const marker = new maplibregl.Marker({ element, anchor: 'center' })
+            .setLngLat([coord.lon, coord.lat])
+            .setPopup(popup)
+            .addTo(routeMap);
+        routeMarkers.push(marker);
     });
+}
 
-    // route_geometry — либо реальная геометрия дороги от OSRM (много точек,
-    // повторяет изгибы трассы), либо просто список городов (прямые линии),
-    // если OSRM был недоступен — в обоих случаях это массив [lat, lon].
-    const pathLatLngs = routeGeometry.map((p) => Array.isArray(p) ? p : [p.lat, p.lon]);
+function renderMap(coords, labels, routeGeometry) {
+    hide(mapPlaceholder);
+    show(mapContainer);
+    show(mapModeControl);
+    lastMapRender = { coords, labels, routeGeometry };
 
-    // Широкая полупрозрачная подложка — мягкое "свечение" GPS-трека.
-    L.polyline(pathLatLngs, { color: '#4fd1c5', weight: 9, opacity: 0.16 }).addTo(group);
+    if (!routeMap && !createRouteMap()) return;
 
-    // Сама линия рисуется отрезками с плавно меняющимся цветом
-    // (тил → янтарь → коралл) поверх подложки: маршрут выглядит как единый
-    // яркий "живой" трек, а не плоская одноцветная полоса.
-    const segmentCount = Math.min(24, Math.max(4, pathLatLngs.length - 1));
-    const chunkSize = Math.max(1, Math.ceil((pathLatLngs.length - 1) / segmentCount));
-    for (let s = 0, start = 0; start < pathLatLngs.length - 1; s++, start += chunkSize) {
-        const end = Math.min(pathLatLngs.length - 1, start + chunkSize);
-        const segPoints = pathLatLngs.slice(start, end + 1);
-        if (segPoints.length < 2) {
-            continue;
-        }
-        const t = segmentCount > 1 ? s / (segmentCount - 1) : 0;
-        L.polyline(segPoints, {
-            color: routeGradientColorAt(Math.min(1, t)),
-            weight: 4,
-            dashArray: '10 8',
-            lineCap: 'round',
-            className: 'route-line-animated',
-        }).addTo(group);
+    routeMap.resize();
+    renderRouteMarkers(coords, labels);
+
+    if (routeMap.isStyleLoaded()) {
+        if (routeMap.getLayer(ROUTE_LINE_LAYER_ID)) routeMap.removeLayer(ROUTE_LINE_LAYER_ID);
+        if (routeMap.getLayer(ROUTE_GLOW_LAYER_ID)) routeMap.removeLayer(ROUTE_GLOW_LAYER_ID);
+        if (routeMap.getSource(ROUTE_SOURCE_ID)) routeMap.removeSource(ROUTE_SOURCE_ID);
+        addRouteLayers();
     }
 
-    group.addTo(leafletMap);
-    routeLayer = group;
-
-    leafletMap.fitBounds(group.getBounds(), { padding: [30, 30] });
+    const bounds = new maplibregl.LngLatBounds();
+    coords.forEach((coord) => bounds.extend([coord.lon, coord.lat]));
+    routeMap.fitBounds(bounds, {
+        padding: { top: 72, right: 64, bottom: 72, left: 64 },
+        maxZoom: 15.5,
+        pitch: currentMapMode === '3d' ? 52 : 0,
+        bearing: currentMapMode === '3d' ? -18 : 0,
+        duration: 1100,
+        essential: true,
+    });
 }
 
 function show(el) {

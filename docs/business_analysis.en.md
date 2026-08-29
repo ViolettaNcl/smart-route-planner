@@ -82,9 +82,9 @@ Useful when:
 
 ### 6. Route visualization
 
-1. Points and the path between them are shown on an interactive map
-   (Leaflet) — the route line follows real roads when OSRM geometry is
-   available.
+1. Points and the path between them are shown on an interactive MapLibre
+   vector map (keyless 2D/3D modes) — the route line follows real roads when
+   OSRM geometry is available.
 2. Ready-made links to Google Maps and Yandex Maps are generated for
    turn-by-turn navigation.
 

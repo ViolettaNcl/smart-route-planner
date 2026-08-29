@@ -60,7 +60,8 @@ class OsrmRoadRouter implements RoadRouterInterface
         $route = $data['routes'][0];
 
         // GeoJSON отдаёт координаты как [lon, lat] — разворачиваем в [lat, lon]
-        // для совместимости с Leaflet и остальным приложением.
+        // для совместимости с контрактом API приложения. MapLibre на фронтенде
+        // преобразует их обратно при создании GeoJSON-источника.
         $geometry = array_map(
             fn ($point) => [$point[1], $point[0]],
             $route['geometry']['coordinates'] ?? []

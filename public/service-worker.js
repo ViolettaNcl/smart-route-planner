@@ -11,7 +11,7 @@
  * отдавать устаревший кэшированный ответ.
  */
 
-const CACHE_VERSION = 'srp-shell-v3';
+const CACHE_VERSION = 'srp-shell-v4';
 
 const SHELL_ASSETS = [
     './',
@@ -34,7 +34,7 @@ const SHELL_ASSETS = [
 self.addEventListener('install', (event) => {
     event.waitUntil(
         caches.open(CACHE_VERSION).then((cache) => cache.addAll(SHELL_ASSETS)).catch(() => {
-            // Если один из внешних (например, CDN Leaflet) ресурсов недоступен на
+            // Если один из внешних (например, CDN MapLibre) ресурсов недоступен на
             // этапе install — не роняем установку всего service worker'а из-за этого.
         })
     );
@@ -53,7 +53,7 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Запросы к нашему API и к сторонним сервисам (Nominatim/OSRM/тайлы карты)
+    // Запросы к нашему API и к сторонним сервисам (Nominatim/OSRM/векторные тайлы)
     // всегда идут в сеть напрямую — кэшировать динамические данные маршрута
     // нельзя, они должны быть актуальными.
     if (url.pathname.includes('/api/') || url.origin !== self.location.origin) {

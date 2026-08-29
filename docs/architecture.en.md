@@ -158,12 +158,13 @@ docker-compose.yml              # Local run / simple VPS deployment
    frontend honestly shows the user which data source and which model were
    used.
 5. `app.js` updates the result cards (including time, cost, CO2) and
-   redraws the Leaflet map — the route line follows the real road geometry
+   redraws the MapLibre GL JS vector map — the route line follows the real road geometry
    (rendered as a multi-hue gradient, with start/end markers styled
    separately from intermediate stops) when geometry is available, or
-   straight lines between cities otherwise. The map's tile theme
-   (dark/light) and the decision-boundary chart's colors are kept in sync
-   with the selected UI theme via `ui.js`.
+   straight lines between cities otherwise. The OpenFreeMap style
+   (dark/light) and the decision-boundary chart colors follow the selected
+   UI theme via `ui.js`; a separate control switches between flat 2D and
+   perspective 3D with extruded buildings.
 
 ## Additional API Endpoints (after the main route calculation)
 
@@ -257,10 +258,8 @@ simple as it gets, with zero database tables involved.
 - **OSRM** (router.project-osrm.org) — real road routing, exact distance and
   travel time for cars (see `OsrmRoadRouter`); a free public demo server
   with no SLA — the app is designed to keep working when it's unreachable.
-- **OpenStreetMap tiles via CartoDB Basemaps** — Leaflet map tiles
-  (`dark_all`/`light_all`, switching along with the UI theme); the
-  underlying data is OpenStreetMap, with the required ODbL attribution kept
-  in the UI.
+- **OpenFreeMap + MapLibre GL JS** — a keyless vector 2D/3D map backed by
+  OpenStreetMap/OpenMapTiles data, with the required attribution kept in the UI.
 - **Overpass API** — points of interest near the route (see
   `OverpassPoiFinder`).
 - **Open-Meteo** — weather along the route, no key required (see

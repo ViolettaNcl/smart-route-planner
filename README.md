@@ -110,8 +110,8 @@ What this project is meant to demonstrate:
   hotels) via the free Overpass API — no API key required.
 - **Weather along the route** via Open-Meteo (no key) — flags heavy rain,
   extreme heat, freezing temperatures, or storms at each stop.
-- **Interactive Leaflet map** — numbered markers, real road geometry, no map
-  API key required.
+- **Interactive MapLibre map** — keyless OpenFreeMap vector tiles, numbered
+  markers, real road geometry, and a 2D ⇄ 3D switch with extruded buildings.
 - **Shareable route links with no database** — the entire route is encoded
   directly into the URL; opening the link recalculates and displays the trip
   immediately.
@@ -125,7 +125,7 @@ What this project is meant to demonstrate:
 - **Fully localized UI (Russian / English)** — one-click switch, no page
   reload, choice persisted in `localStorage`
   (`public/assets/js/i18n.js`).
-- **Light / dark theme** — persisted between visits; the map tiles and the
+- **Light / dark theme** — persisted between visits; the map style and the
   decision-boundary chart re-theme along with the rest of the UI
   (`public/assets/js/ui.js`).
 - No page reloads anywhere — every calculation is a `fetch` call against a
@@ -216,7 +216,7 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | Machine learning | MLP (hidden layer + backprop from scratch) and softmax regression — gradient descent, cross-entropy loss; K-Means (Lloyd's algorithm, from scratch) — unsupervised day-plan clustering |
 | AI assistant | Vercel AI Gateway (OIDC), Anthropic/OpenAI fallback, rule-based offline fallback |
 | Geodata | Overpass API (points of interest), Open-Meteo (weather) — both keyless |
-| Frontend | Vanilla JS (fetch API), Leaflet.js, Chart.js, CSS custom properties (theming) |
+| Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap (keyless 2D/3D vector map), Chart.js, CSS custom properties (theming) |
 | Testing | A minimal custom test runner (no dependencies); HTTP integration tests via `php -S` |
 | Rate limiting | Token bucket from scratch (`App\Http\RateLimiter`), file storage with `flock` |
 | CI/CD | GitHub Actions — lint + tests on PHP 8.1/8.2/8.3, server smoke test, `composer audit`, automated Docker build, Dependabot |

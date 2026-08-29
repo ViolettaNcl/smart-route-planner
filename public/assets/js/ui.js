@@ -4,7 +4,7 @@
  * desktop-раскладке — тему (светлая/тёмная) и вкладки в панели результата.
  *
  * Тема применяется к <html data-theme="dark|light">, сохраняется в
- * localStorage и сообщается карте (app.js меняет подложку Leaflet-тайлов
+ * localStorage и сообщается карте (app.js меняет векторный стиль MapLibre
  * через window.setMapTileTheme, см. app.js).
  */
 
@@ -85,8 +85,8 @@ function initResultTabs() {
             // Карта могла подрасти/измениться в высоте при первом рендере
             // (например, если пользователь только что переключился с
             // мобильной раскладки) — на всякий случай пересчитываем размер.
-            if (typeof leafletMap !== 'undefined' && leafletMap && typeof leafletMap.invalidateSize === 'function') {
-                leafletMap.invalidateSize();
+            if (typeof routeMap !== 'undefined' && routeMap && typeof routeMap.resize === 'function') {
+                routeMap.resize();
             }
         });
     });
