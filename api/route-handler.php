@@ -5,8 +5,10 @@ declare(strict_types=1);
 /**
  * Dedicated Vercel entry point for the main route calculation.
  *
- * The implementation is stored outside any /api directory so Vercel does
- * not auto-detect it as another Serverless Function on the Hobby plan.
+ * The public URL `/api/route.php` is rewritten to this distinct handler path.
+ * Keeping the source and destination different avoids a self-rewrite at the
+ * Vercel routing layer while the actual endpoint implementation stays outside
+ * `/api`, so it is not auto-detected as another Serverless Function.
  */
 
 ini_set('display_errors', '0');
@@ -16,6 +18,7 @@ if (function_exists('set_time_limit')) {
     @set_time_limit(25);
 }
 
+header('Content-Type: application/json; charset=utf-8');
 header('X-Smart-Route-Direct: 1');
 
 ob_start();
