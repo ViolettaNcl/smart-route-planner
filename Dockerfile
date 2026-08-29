@@ -10,7 +10,7 @@
 # Образ на базе официального php:8.3-apache — Apache + mod_php, простой и
 # предсказуемый выбор для проекта такого размера (не php-fpm+nginx, чтобы
 # не плодить два процесса и общий volume для php-fpm.sock).
-FROM php:8.3-apache
+FROM php:8.5-apache
 
 # --- Системные зависимости для расширений PHP ---
 # libonig-dev нужен для mbstring (используется в FileCache/NominatimGeocoder
