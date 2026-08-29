@@ -92,6 +92,126 @@ function initResultTabs() {
     });
 }
 
+/* ------------------------------------------------------------------ *
+ * Более выразительный режим 3D для маршрутной карты.
+ *
+ * Базовая карта остаётся OpenFreeMap/MapLibre и по-прежнему не требует
+ * API-ключа. Здесь поверх неё добавляются бесплатный глобальный рельеф
+ * Mapterhorn, мягкая hillshade-подсветка и globe-проекция. В 2D всё это
+ * отключается, чтобы пользователь получал обычную плоскую дорожную карту.
+ *
+ * Код живёт в ui.js намеренно как визуальная надстройка: расчёт маршрута,
+ * OSRM-геометрия и маркеры остаются в app.js без изменений.
+ * ------------------------------------------------------------------ */
+
+const ROUTE_TERRAIN_SOURCE_ID = 'route-terrain-dem';
+const ROUTE_TERRAIN_HILLSHADE_LAYER_ID = 'route-terrain-hillshade';
+const ROUTE_TERRAIN_TILEJSON = 'https://tiles.mapterhorn.com/tilejson.json';
+
+function ensureRouteTerrainLayers() {
+    if (typeof routeMap === 'undefined' || !routeMap || !routeMap.isStyleLoaded()) {
+        return;
+    }
+
+    if (!routeMap.getSource(ROUTE_TERRAIN_SOURCE_ID)) {
+        routeMap.addSource(ROUTE_TERRAIN_SOURCE_ID, {
+            type: 'raster-dem',
+            url: ROUTE_TERRAIN_TILEJSON,
+            tileSize: 512,
+            attribution: 'Terrain © Mapterhorn',
+        });
+    }
+
+    if (!routeMap.getLayer(ROUTE_TERRAIN_HILLSHADE_LAYER_ID)) {
+        const dark = getTheme() === 'dark';
+        const beforeId = typeof BUILDINGS_LAYER_ID !== 'undefined' && routeMap.getLayer(BUILDINGS_LAYER_ID)
+            ? BUILDINGS_LAYER_ID
+            : (typeof ROUTE_GLOW_LAYER_ID !== 'undefined' && routeMap.getLayer(ROUTE_GLOW_LAYER_ID)
+                ? ROUTE_GLOW_LAYER_ID
+                : (typeof findFirstLabelLayerId === 'function' ? findFirstLabelLayerId() : undefined));
+
+        routeMap.addLayer({
+            id: ROUTE_TERRAIN_HILLSHADE_LAYER_ID,
+            type: 'hillshade',
+            source: ROUTE_TERRAIN_SOURCE_ID,
+            layout: {
+                visibility: typeof currentMapMode !== 'undefined' && currentMapMode === '3d'
+                    ? 'visible'
+                    : 'none',
+            },
+            paint: {
+                'hillshade-illumination-direction': 315,
+                'hillshade-exaggeration': dark ? 0.34 : 0.26,
+                'hillshade-shadow-color': dark ? 'rgba(5, 12, 20, 0.72)' : 'rgba(63, 67, 82, 0.32)',
+                'hillshade-highlight-color': dark ? 'rgba(103, 232, 219, 0.24)' : 'rgba(255, 255, 255, 0.58)',
+                'hillshade-accent-color': dark ? 'rgba(167, 139, 250, 0.26)' : 'rgba(124, 58, 237, 0.15)',
+            },
+        }, beforeId);
+    }
+}
+
+function syncRouteMapDepth() {
+    if (typeof routeMap === 'undefined' || !routeMap || !routeMap.isStyleLoaded()) {
+        return;
+    }
+
+    const use3d = typeof currentMapMode !== 'undefined' && currentMapMode === '3d';
+    const hasTerrain = Boolean(routeMap.getSource(ROUTE_TERRAIN_SOURCE_ID));
+
+    if (typeof routeMap.setProjection === 'function') {
+        try {
+            routeMap.setProjection({ type: use3d ? 'globe' : 'mercator' });
+        } catch (e) {
+            // Старые/ограниченные WebGL-реализации всё равно сохраняют pitch + 3D buildings.
+        }
+    }
+
+    if (hasTerrain && typeof routeMap.setTerrain === 'function') {
+        try {
+            routeMap.setTerrain(use3d
+                ? { source: ROUTE_TERRAIN_SOURCE_ID, exaggeration: 1.16 }
+                : null);
+        } catch (e) {
+            // Fallback: если конкретная версия MapLibre не принимает null,
+            // оставляем DEM активным, но делаем его визуально плоским.
+            if (!use3d) {
+                try {
+                    routeMap.setTerrain({ source: ROUTE_TERRAIN_SOURCE_ID, exaggeration: 0 });
+                } catch (ignored) {
+                    // Рельеф необязателен: базовая карта остаётся полностью рабочей.
+                }
+            }
+        }
+    }
+
+    if (routeMap.getLayer(ROUTE_TERRAIN_HILLSHADE_LAYER_ID)) {
+        routeMap.setLayoutProperty(
+            ROUTE_TERRAIN_HILLSHADE_LAYER_ID,
+            'visibility',
+            use3d ? 'visible' : 'none'
+        );
+    }
+}
+
+// app.js загружен раньше ui.js, поэтому мы аккуратно расширяем уже существующие
+// hooks, не дублируя расчёт маршрута и не меняя публичный API приложения.
+if (typeof restoreMapLayers === 'function' && typeof applyMapMode === 'function') {
+    const restoreMapLayersBase = restoreMapLayers;
+    const applyMapModeBase = applyMapMode;
+
+    restoreMapLayers = function () {
+        restoreMapLayersBase();
+        ensureRouteTerrainLayers();
+        syncRouteMapDepth();
+    };
+
+    applyMapMode = function (animate = true) {
+        applyMapModeBase(animate);
+        ensureRouteTerrainLayers();
+        syncRouteMapDepth();
+    };
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initTheme();
     initResultTabs();
