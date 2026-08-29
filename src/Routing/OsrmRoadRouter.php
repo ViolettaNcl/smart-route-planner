@@ -2,6 +2,8 @@
 
 namespace App\Routing;
 
+use App\Http\SafeHttpClient;
+
 /**
  * Реальный маршрут по дорогам через публичный демо-сервер OSRM
  * (Open Source Routing Machine, router.project-osrm.org).
@@ -17,9 +19,8 @@ namespace App\Routing;
  * - это бесплатный публичный сервис без SLA — он может быть недоступен или
  *   медленным, поэтому вызывающий код (RoutePlanner) обязан аккуратно
  *   откатываться на Haversine-дистанцию и прямые линии, если OSRM не ответил;
- * - на реальном проде стоило бы поднять собственный инстанс OSRM или взять
- *   платный маршрутизатор с SLA — демо-сервер годится для пет-проекта и
- *   показа возможностей, не для продакшена с нагрузкой.
+ * - сетевой вызов использует переносимый SafeHttpClient: cURL при наличии и
+ *   PHP streams как fallback на serverless-хостингах.
  */
 class OsrmRoadRouter implements RoadRouterInterface
 {
@@ -45,7 +46,10 @@ class OsrmRoadRouter implements RoadRouterInterface
             'geometries' => 'geojson',
         ]);
 
-        $response = $this->fetch($url);
+        $response = SafeHttpClient::get($url, $this->timeoutSeconds, [
+            'User-Agent: smart-route-planner (portfolio project)',
+            'Accept: application/json',
+        ]);
 
         if ($response === null) {
             return null;
@@ -72,26 +76,5 @@ class OsrmRoadRouter implements RoadRouterInterface
             'duration_min' => round($route['duration'] / 60, 1),
             'geometry' => $geometry,
         ];
-    }
-
-    private function fetch(string $url): ?string
-    {
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_TIMEOUT => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->timeoutSeconds,
-            CURLOPT_HTTPHEADER => ['User-Agent: smart-route-planner (portfolio project)'],
-        ]);
-
-        $body = curl_exec($ch);
-        $error = curl_error($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        if ($body === false || $error !== '' || $status !== 200) {
-            return null;
-        }
-
-        return $body;
     }
 }
