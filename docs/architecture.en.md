@@ -27,7 +27,7 @@ fine-tuning.
 bootstrap.php                 # Class autoloader (works without composer install)
 composer.json                 # PSR-4 autoloading (optional, for composer dump-autoload)
 vercel.json                   # PHP 8.3 runtime and Vercel Functions routes
-api/                          # Thin Vercel entrypoints into public/ and public/api/
+api/index.php                 # Single Vercel front controller for every API route
 bin/
   train_model.php             # CLI: trains MLP and softmax, saves weights, prints accuracy for both
 public/

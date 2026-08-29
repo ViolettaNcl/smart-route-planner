@@ -4,6 +4,7 @@ parameters:
         - src
         - bin
         - public
+        - api
     excludePaths:
         - public/assets/*
     tmpDir: var/phpstan-cache

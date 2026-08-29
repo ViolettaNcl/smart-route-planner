@@ -1,7 +1,7 @@
 <?php
 
 $finder = (new PhpCsFixer\Finder())
-    ->in([__DIR__ . '/src', __DIR__ . '/bin', __DIR__ . '/public', __DIR__ . '/tests'])
+    ->in([__DIR__ . '/src', __DIR__ . '/bin', __DIR__ . '/public', __DIR__ . '/api', __DIR__ . '/tests'])
     ->exclude('assets')
     ->name('*.php');
 

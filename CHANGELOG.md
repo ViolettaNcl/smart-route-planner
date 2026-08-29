@@ -6,7 +6,7 @@
 ## [Unreleased]
 
 ### Added
-- Production-конфигурация Vercel Functions с PHP 8.3 entrypoints и новым
+- Production-конфигурация Vercel Functions с PHP 8.3 front controller и новым
   live demo URL.
 - Интеграция Vercel AI Gateway: на Vercel используется автоматически
   обновляемый OIDC-токен, а прямые Anthropic/OpenAI-ключи остаются резервом.
@@ -39,6 +39,8 @@
   форматирование независимо от ОС/IDE разработчика.
 
 ### Fixed
+- Vercel Hobby build больше не превышает лимит в 12 Serverless Functions:
+  все HTTP-эндпоинты обслуживает один PHP front controller.
 - Несовпадающий PHPDoc-тип константы `WEATHER_CODES` в `OpenMeteoClient`.
 - Пропущенный заголовок раздела в `docs/neural_net.md` (список ограничений
   модели шёл без заголовка).

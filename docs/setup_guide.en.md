@@ -75,9 +75,11 @@ Encrypt) — the container itself just serves plain HTTP on the port set in
 
 ## Option 4 — Vercel Functions (production demo)
 
-The repository includes `vercel.json` and Vercel-compatible entrypoints in
-`api/`. Import the GitHub repository into Vercel and keep Root Directory set
-to `./`. The build uses the `vercel-php@0.7.4` community runtime (PHP 8.3).
+The repository includes `vercel.json` and a single PHP front controller at
+`api/index.php` for every API route, keeping the deployment within the free
+Hobby plan's Serverless Functions limit. Import the GitHub repository into
+Vercel and keep Root Directory set to `./`. The build uses the
+`vercel-php@0.7.4` community runtime (PHP 8.3).
 
 No separate OpenAI/Anthropic key is required on Vercel: the AI assistant uses
 the automatically refreshed `VERCEL_OIDC_TOKEN` with Vercel AI Gateway. The

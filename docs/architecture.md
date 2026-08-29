@@ -26,7 +26,7 @@
 bootstrap.php                 # Автозагрузчик классов (работает без composer install)
 composer.json                 # PSR-4 автозагрузка (опционально, для composer dump-autoload)
 vercel.json                   # PHP 8.3 runtime и маршруты Vercel Functions
-api/                          # Тонкие Vercel-entrypoints к public/ и public/api/
+api/index.php                 # Единый Vercel front controller для всех API-маршрутов
 bin/
   train_model.php             # CLI: обучает MLP и Softmax, сохраняет веса и печатает точность обеих моделей
 public/

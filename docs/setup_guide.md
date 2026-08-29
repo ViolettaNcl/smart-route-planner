@@ -72,10 +72,11 @@ Nginx/Caddy перед контейнером как reverse proxy для HTTPS 
 
 ## Вариант 4 — Vercel Functions (production demo)
 
-Репозиторий уже содержит `vercel.json` и совместимые entrypoint-файлы в
-`api/`. Импортируйте GitHub-репозиторий в Vercel и оставьте Root Directory
-равным `./`. Сборка использует community runtime `vercel-php@0.7.4`
-(PHP 8.3).
+Репозиторий уже содержит `vercel.json` и единый PHP front controller
+`api/index.php`, через который проходят все API-маршруты. Это укладывается в
+лимит Serverless Functions бесплатного Hobby-плана. Импортируйте
+GitHub-репозиторий в Vercel и оставьте Root Directory равным `./`. Сборка
+использует community runtime `vercel-php@0.7.4` (PHP 8.3).
 
 На Vercel отдельный OpenAI/Anthropic-ключ не нужен: AI-помощник использует
 автоматически обновляемый `VERCEL_OIDC_TOKEN` для Vercel AI Gateway. Модель
