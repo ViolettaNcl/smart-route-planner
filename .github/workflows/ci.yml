@@ -29,7 +29,7 @@ jobs:
       - name: Validate composer.json
         run: composer validate --no-check-all --no-check-publish
 
-      - name: Composer install (dev tools: PHPStan, PHP-CS-Fixer)
+      - name: "Composer install (dev tools: PHPStan, PHP-CS-Fixer)"
         run: composer install --no-interaction --prefer-dist
 
       - name: Code style check (PHP-CS-Fixer)
