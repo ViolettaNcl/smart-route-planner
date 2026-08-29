@@ -5,10 +5,9 @@ declare(strict_types=1);
 /**
  * Dedicated Vercel entry point for the main route calculation.
  *
- * The web UI calls /api/route.php. Vercel rewrites that one URL directly to
- * this function, bypassing the generic API dispatcher. This avoids any
- * ambiguity around rewrite query parameters while keeping the remaining API
- * endpoints behind api/index.php, so the Hobby function count stays low.
+ * The web UI calls /api/route.php, which maps directly to this serverless
+ * function. Keeping the route endpoint as a real function avoids overlapping
+ * rewrite rules while the remaining API endpoints stay behind api/index.php.
  */
 
 ini_set('display_errors', '0');
@@ -20,9 +19,6 @@ if (function_exists('set_time_limit')) {
 
 header('X-Smart-Route-Direct: 1');
 
-// Keep accidental PHP warnings/notices out of the JSON body. If a fatal error
-// occurs, replace buffered output with a small valid JSON response so the
-// frontend does not mistake an HTML/runtime error page for a network failure.
 ob_start();
 $completed = false;
 
@@ -42,7 +38,7 @@ register_shutdown_function(static function () use (&$completed): void {
         ob_end_clean();
     }
 
-    error_log('[smart-route-planner route-direct fatal] ' . ($error['message'] ?? 'unknown fatal error'));
+    error_log('[smart-route-planner route fatal] ' . ($error['message'] ?? 'unknown fatal error'));
 
     if (!headers_sent()) {
         header('Content-Type: application/json; charset=utf-8');
@@ -71,7 +67,7 @@ try {
         ob_end_clean();
     }
 
-    error_log('[smart-route-planner route-direct] ' . $e->getMessage());
+    error_log('[smart-route-planner route] ' . $e->getMessage());
 
     if (!headers_sent()) {
         header('Content-Type: application/json; charset=utf-8');
