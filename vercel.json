@@ -4,29 +4,13 @@
     "api/index.php": {
       "runtime": "vercel-php@0.7.4",
       "maxDuration": 30
-    },
-    "api/route-handler.php": {
-      "runtime": "vercel-php@0.7.4",
-      "maxDuration": 30
     }
   },
   "routes": [
     { "src": "/assets/(.*)", "dest": "/public/assets/$1" },
     { "src": "/manifest.webmanifest", "dest": "/public/manifest.webmanifest" },
     { "src": "/service-worker.js", "dest": "/public/service-worker.js" },
-    { "src": "/api/route\\.php", "dest": "/api/route-handler.php" },
-    { "src": "/api/ab_stats\\.php", "dest": "/api/index.php?endpoint=ab_stats" },
-    { "src": "/api/assistant\\.php", "dest": "/api/index.php?endpoint=assistant" },
-    { "src": "/api/day_plan\\.php", "dest": "/api/index.php?endpoint=day_plan" },
-    { "src": "/api/decision_boundary\\.php", "dest": "/api/index.php?endpoint=decision_boundary" },
-    { "src": "/api/explain\\.php", "dest": "/api/index.php?endpoint=explain" },
-    { "src": "/api/feedback\\.php", "dest": "/api/index.php?endpoint=feedback" },
-    { "src": "/api/health\\.php", "dest": "/api/index.php?endpoint=health" },
-    { "src": "/api/learn\\.php", "dest": "/api/index.php?endpoint=learn" },
-    { "src": "/api/poi\\.php", "dest": "/api/index.php?endpoint=poi" },
-    { "src": "/api/reset_model\\.php", "dest": "/api/index.php?endpoint=reset_model" },
-    { "src": "/api/suggest\\.php", "dest": "/api/index.php?endpoint=suggest" },
-    { "src": "/api/weather\\.php", "dest": "/api/index.php?endpoint=weather" },
+    { "src": "/api/([A-Za-z_]+)\\.php", "dest": "/api/index.php?endpoint=$1" },
     { "src": "/", "dest": "/api/index.php?home=1" }
   ]
 }
