@@ -4,17 +4,16 @@ namespace Tests\Http;
 
 /**
  * Мини-обвязка для HTTP-интеграционных тестов: поднимает встроенный
- * веб-сервер PHP (`php -S`) в отдельном процессе, направленный на папку
- * public/ — то есть тесты стучатся по-настоящему через HTTP в реальные
- * api/*.php файлы, а не вызывают классы напрямую.
+ * веб-сервер PHP (`php -S`) в отдельном процессе с document root public/
+ * и test-router'ом, который повторяет Vercel-маршрутизацию API через
+ * единый api/index.php front controller.
  *
  * Зачем это отдельно от обычных unit-тестов (см. RoutePlannerTest и др.):
  * unit-тесты в этом проекте проверяют классы (App\RoutePlanner,
  * App\ML\KMeansDaySplitter, ...) напрямую, с поддельными зависимостями
  * (FakeGeocoder и т.п.) — они не видят HTTP-обвязку: разбор $_POST,
  * коды ответа (405/422/429), заголовки, JSON-энкодинг. Баг в этом слое
- * ("забыли проверить входные данные в конкретном api/*.php") unit-тесты
- * просто не заметят. HttpTestServer закрывает именно этот пробел.
+ * unit-тесты просто не заметят. HttpTestServer закрывает именно этот пробел.
  */
 class HttpTestServer
 {
@@ -37,10 +36,12 @@ class HttpTestServer
             2 => ['pipe', 'w'],
         ];
 
+        $router = __DIR__ . '/router.php';
         $command = sprintf(
-            'php -S 127.0.0.1:%d -t %s',
+            'php -S 127.0.0.1:%d -t %s %s',
             $this->port,
-            escapeshellarg($this->publicDir)
+            escapeshellarg($this->publicDir),
+            escapeshellarg($router)
         );
 
         $this->process = proc_open($command, $descriptors, $this->pipes);
