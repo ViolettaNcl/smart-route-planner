@@ -8,6 +8,7 @@ use App\ML\Dataset;
 use App\ML\FeatureEncoder;
 use App\ML\MLPClassifier;
 use App\ML\SoftmaxClassifier;
+use App\Support\RuntimeStorage;
 
 /**
  * Данные для интерактивной визуализации decision boundary классификатора
@@ -34,7 +35,7 @@ $modelParam = in_array($modelParam, ['mlp', 'softmax'], true) ? $modelParam : 'm
 
 try {
     if ($modelParam === 'mlp') {
-        $weightsPath = __DIR__ . '/../../src/ML/mlp_weights.json';
+        $weightsPath = RuntimeStorage::modelWeightsPath();
         $model = new MLPClassifier(Dataset::CLASSES);
     } else {
         $weightsPath = __DIR__ . '/../../src/ML/model_weights.json';

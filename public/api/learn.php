@@ -7,6 +7,7 @@ require __DIR__ . '/../../bootstrap.php';
 use App\Http\RateLimitGuard;
 use App\ML\Dataset;
 use App\ML\TransportPredictor;
+use App\Support\RuntimeStorage;
 
 /**
  * "Живое" дообучение модели: пользователь поправляет предсказание ("на
@@ -49,7 +50,7 @@ if ($distanceKm === null || $stops === null || !in_array($correctLabel, Dataset:
     exit;
 }
 
-$mlpWeightsPath = __DIR__ . '/../../src/ML/mlp_weights.json';
+$mlpWeightsPath = RuntimeStorage::modelWeightsPath();
 
 try {
     $predictor = new TransportPredictor($mlpWeightsPath, __DIR__ . '/../../src/ML/model_weights.json');

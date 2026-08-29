@@ -10,10 +10,10 @@ executes at the top level of a class file — every class only exposes
 methods, so all business logic (aside from HTTP glue) is unit-testable
 without booting a web server.
 
-There is no database: the only persistent state lives on disk — the
-geocoding cache (`var/geocache/`), rate-limiter state (`var/ratelimit/`),
-A/B-test statistics (`var/ab_stats.json`), and the trained model weights
-(`src/ML/model_weights.json`, `src/ML/mlp_weights.json`).
+There is no database. Baseline model weights live in the repository
+(`src/ML/model_weights.json`, `src/ML/mlp_weights.json`), while mutable
+state (cache, rate limits, A/B stats, logs, and live-trained weights) goes
+through `RuntimeStorage`: `var/` locally and ephemeral `/tmp` on Vercel.
 
 The project grew from a single route calculation into a set of independent
 features, each its own API endpoint that doesn't block or break the core
@@ -26,6 +26,8 @@ fine-tuning.
 ```text
 bootstrap.php                 # Class autoloader (works without composer install)
 composer.json                 # PSR-4 autoloading (optional, for composer dump-autoload)
+vercel.json                   # PHP 8.3 runtime and Vercel Functions routes
+api/                          # Thin Vercel entrypoints into public/ and public/api/
 bin/
   train_model.php             # CLI: trains MLP and softmax, saves weights, prints accuracy for both
 public/
@@ -82,7 +84,7 @@ src/
     mlp_weights.trained.json           # Backup/reference copy of MLP weights for api/reset_model.php
     model_weights.json                  # Softmax baseline weights
   AI/
-    TripAssistantService.php      # AI trip note: LLM (Anthropic/OpenAI) or rule-based fallback
+    TripAssistantService.php      # AI note: Vercel AI Gateway / Anthropic / OpenAI / fallback
   Weather/
     OpenMeteoClient.php            # Weather at each route point (no key required)
   Geodata/
@@ -92,7 +94,8 @@ src/
     ClientIdentity.php              # Client identification by IP (with optional X-Forwarded-For trust)
     RateLimitGuard.php               # One-line wrapper at the top of api/*.php -> 429 on limit exceeded
   Support/
-    Logger.php                     # Dependency-free file logger (var/app.log) — fallback transitions
+    RuntimeStorage.php             # var/ locally, writable /tmp on Vercel
+    Logger.php                     # Dependency-free file logger — fallback transitions
 tests/
   run.php                      # Entry point: php tests/run.php
   TestReporter.php              # Minimal PHPUnit-assert replacement
@@ -170,7 +173,7 @@ break `api/route.php`:
 
 | Endpoint | Purpose |
 |---|---|
-| `api/assistant.php` | AI trip note: LLM (Anthropic/OpenAI, if a key is set) or an offline rule-based fallback (`App\AI\TripAssistantService`) |
+| `api/assistant.php` | AI note: Vercel AI Gateway (OIDC), Anthropic/OpenAI, or offline fallback (`App\AI\TripAssistantService`) |
 | `api/weather.php` | Weather at each route point via Open-Meteo, no API key (`App\Weather\OpenMeteoClient`) |
 | `api/poi.php` | Points of interest (gas stations/cafés/restaurants/hotels) near the route via the Overpass API, no key (`App\Geodata\OverpassPoiFinder`) |
 | `api/day_plan.php` | Splits an already-calculated route into mileage-balanced driving days (`App\ML\KMeansDaySplitter`, unsupervised K-Means) |
@@ -233,13 +236,14 @@ simple as it gets, with zero database tables involved.
 | `KMeansDaySplitter` | Unsupervised K-Means (Lloyd's algorithm, 1D over cumulative distance) — day plan, preserving city order |
 | `TransportPredictor` | Loads weights, predicts transport mode, live fine-tuning and model reset |
 | `ABTestStats` | File-backed counters for the MLP vs softmax A/B test |
-| `TripAssistantService` | AI trip note — calls an LLM (Anthropic/OpenAI) or falls back to rule-based text |
+| `TripAssistantService` | AI note — Gateway with OIDC, direct providers, then rule-based fallback |
 | `OpenMeteoClient` | Weather at each route point |
 | `OverpassPoiFinder` | Points of interest near the route |
 | `RateLimiter` | Token bucket from scratch: continuous token replenishment, file storage with `flock`, fail-open on disk errors |
 | `ClientIdentity` | Client identification by IP for rate limiting |
 | `RateLimitGuard` | One-line wrapper around `RateLimiter` for use at the top of `api/*.php` — 429 on limit exceeded |
-| `Logger` | Dependency-free file logger (`var/app.log`) — records fallback transitions (OSRM→Haversine, LLM→rule-based) |
+| `RuntimeStorage` | Shared path for cache, rate limits, logs, and mutable weights: `var/` locally, `/tmp` on Vercel |
+| `Logger` | Dependency-free file logger — records fallback transitions (OSRM→Haversine, LLM→rule-based) |
 | `Tests\Http\HttpTestServer` | Boots a real `php -S`, exposes `get()`/`post()` via cURL — the basis for HTTP integration tests |
 | `public/assets/js/app.js` | Frontend orchestration: API fetch calls, form state, rendering of result cards/map/feature widgets, event handlers |
 | `public/assets/js/ui.js` | UI-only layer with no API calls: theme (light/dark, localStorage), keeping the map and model chart in sync with the theme, result-panel tabs |
@@ -261,8 +265,8 @@ simple as it gets, with zero database tables involved.
   `OverpassPoiFinder`).
 - **Open-Meteo** — weather along the route, no key required (see
   `OpenMeteoClient`).
-- **Anthropic Messages API / OpenAI Chat Completions** — optional, for a
-  real LLM-generated AI trip note (see `TripAssistantService`); without a
+- **Vercel AI Gateway / Anthropic / OpenAI** — Gateway with OIDC is used on
+  Vercel, with direct provider keys retained as fallbacks; without any
   key, an honest rule-based fallback is used instead.
 - **Google Maps / Yandex Maps** — generates links to the finished route
   (opens in a new tab, not embedded).

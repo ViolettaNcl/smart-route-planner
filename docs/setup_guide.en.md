@@ -73,6 +73,22 @@ Nginx/Caddy in front of the container as a reverse proxy for HTTPS (Let's
 Encrypt) — the container itself just serves plain HTTP on the port set in
 `PORT`.
 
+## Option 4 — Vercel Functions (production demo)
+
+The repository includes `vercel.json` and Vercel-compatible entrypoints in
+`api/`. Import the GitHub repository into Vercel and keep Root Directory set
+to `./`. The build uses the `vercel-php@0.7.4` community runtime (PHP 8.3).
+
+No separate OpenAI/Anthropic key is required on Vercel: the AI assistant uses
+the automatically refreshed `VERCEL_OIDC_TOKEN` with Vercel AI Gateway. The
+default model is `openai/gpt-5-mini`; override it with `AI_MODEL_GATEWAY`.
+If a static `AI_GATEWAY_API_KEY` is preferred, store it only in Project
+Settings → Environment Variables and never commit it to GitHub.
+
+Vercel Functions use ephemeral storage. The app automatically redirects its
+cache, rate limiter, logs, A/B stats, and live-learning weights to `/tmp`;
+these values may reset after a cold start or a new deployment.
+
 ## Verifying the setup
 
 ```bash
@@ -86,13 +102,13 @@ versions).
 
 With zero configuration, the AI trip note already works — offline, via clear
 rules (see `docs/neural_net.md` and `src/AI/TripAssistantService.php`). To
-have a real LLM (Anthropic Claude or OpenAI) generate the text instead, set
-a key using one of two methods:
+have a real LLM through Vercel AI Gateway, Anthropic, or OpenAI generate the
+text instead, set a key using one of two methods:
 
 **Method A — environment variable** (PHP's built-in server):
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export AI_GATEWAY_API_KEY=...   # or ANTHROPIC_API_KEY / OPENAI_API_KEY
 php -S localhost:8000 -t public
 ```
 

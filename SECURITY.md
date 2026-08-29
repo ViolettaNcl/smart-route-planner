@@ -17,9 +17,11 @@
 
 - **Нет базы данных и аутентификации** — соответственно, нет SQL-инъекций и
   нет учётных записей, которые можно было бы скомпрометировать.
-- **API-ключи** (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) читаются только из
-  переменных окружения или `config.local.php` (в `.gitignore`) — никогда не
-  коммитятся и не возвращаются клиенту в ответах API.
+- **API-ключи** (`AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`)
+  читаются только из переменных окружения или `config.local.php` (в
+  `.gitignore`); на Vercel предпочтителен автоматически обновляемый
+  `VERCEL_OIDC_TOKEN`. Секреты никогда не коммитятся и не попадают в ответы
+  API.
 - **Rate limiting** (`App\Http\RateLimiter`) защищает эндпоинты живого
   дообучения модели (`api/learn.php`, `api/reset_model.php`) и свободные
   лимиты внешних API от злоупотребления одним клиентом.
@@ -64,9 +66,10 @@ respond within a few days.
 
 - No database or authentication — no SQL injection surface, no accounts to
   compromise.
-- API keys (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) are read only from
-  environment variables or `config.local.php` (gitignored) — never
-  committed, never echoed back in API responses.
+- API keys (`AI_GATEWAY_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`) are
+  read only from environment variables or `config.local.php` (gitignored);
+  Vercel's automatically refreshed `VERCEL_OIDC_TOKEN` is preferred on
+  Vercel. Secrets are never committed or echoed back in API responses.
 - Rate limiting (`App\Http\RateLimiter`) protects the live model
   fine-tuning endpoints (`api/learn.php`, `api/reset_model.php`) and the
   free external API quotas from single-client abuse.

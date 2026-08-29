@@ -6,6 +6,7 @@ require __DIR__ . '/../../bootstrap.php';
 
 use App\Http\RateLimitGuard;
 use App\ML\ABTestStats;
+use App\Support\RuntimeStorage;
 
 /**
  * A/B-тест MLP vs Softmax: фиксирует "угадала ли модель" для варианта,
@@ -34,7 +35,7 @@ if (!in_array($variant, ['mlp', 'softmax'], true) || !in_array($isCorrectRaw, ['
 }
 
 try {
-    $stats = new ABTestStats(__DIR__ . '/../../var/ab_stats.json');
+    $stats = new ABTestStats(RuntimeStorage::path('ab_stats.json'));
     $stats->record($variant, $isCorrectRaw === '1');
 
     echo json_encode(['ok' => true, 'stats' => $stats->getStats()], JSON_UNESCAPED_UNICODE);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../bootstrap.php';
 
+use App\Support\RuntimeStorage;
+
 /**
  * Сброс модели к изначально обученному состоянию — отменяет весь эффект
  * "живого" дообучения через api/learn.php (см. его docblock про общий
@@ -19,10 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$backupPath = __DIR__ . '/../../src/ML/mlp_weights.trained.json';
-$liveWeightsPath = __DIR__ . '/../../src/ML/mlp_weights.json';
-
-if (!is_file($backupPath)) {
+if (!is_file(__DIR__ . '/../../src/ML/mlp_weights.trained.json')) {
     http_response_code(500);
     echo json_encode([
         'ok' => false,
@@ -32,7 +31,7 @@ if (!is_file($backupPath)) {
     exit;
 }
 
-if (copy($backupPath, $liveWeightsPath)) {
+if (RuntimeStorage::resetModelWeights()) {
     echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
 } else {
     http_response_code(500);

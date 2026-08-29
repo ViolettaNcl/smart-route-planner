@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../bootstrap.php';
 
+use App\Support\RuntimeStorage;
+
 /**
  * Health-check эндпоинт: не диагностика на все случаи жизни, а быстрая
  * проверка, что процесс жив и минимально дееспособен — без сети наружу
@@ -14,8 +16,8 @@ require __DIR__ . '/../../bootstrap.php';
  *
  * 200 — всё в порядке, годится для UptimeRobot/аптайм-мониторинга и для
  *       HEALTHCHECK-директивы в Docker.
- * 503 — что-то не так (веса модели повреждены/отсутствуют, var/ не
- *       доступна на запись) — сигнал для оркестратора перезапустить
+ * 503 — что-то не так (веса модели повреждены/отсутствуют, runtime storage
+ *       недоступен на запись) — сигнал для оркестратора перезапустить
  *       контейнер или для алерта, что деплой прошёл не полностью.
  */
 header('Content-Type: application/json; charset=utf-8');
@@ -44,10 +46,11 @@ foreach ([$weightsPath, $fallbackWeightsPath] as $path) {
 }
 $checks['model_weights'] = $weightsOk;
 
-// 2) var/ доступна на запись — там живут geocode-кэш, rate limiter и
-//    A/B-статистика; без записи туда приложение всё ещё отвечает на
-//    статические запросы, но деградирует, поэтому это тоже часть health-check.
-$checks['var_writable'] = is_dir(__DIR__ . '/../../var') && is_writable(__DIR__ . '/../../var');
+// 2) Runtime storage доступен на запись — там живут geocode-кэш, rate limiter
+//    и A/B-статистика; без записи приложение всё ещё отвечает на статические
+//    запросы, но деградирует, поэтому это тоже часть health-check.
+$runtimeDir = RuntimeStorage::baseDir();
+$checks['runtime_storage_writable'] = is_dir($runtimeDir) && is_writable($runtimeDir);
 
 $healthy = !in_array(false, $checks, true);
 

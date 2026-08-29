@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/../../bootstrap.php';
 
 use App\ML\ABTestStats;
+use App\Support\RuntimeStorage;
 
 /**
  * Текущая агрегированная статистика A/B-теста MLP vs Softmax.
@@ -20,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'GET') {
 }
 
 try {
-    $stats = new ABTestStats(__DIR__ . '/../../var/ab_stats.json');
+    $stats = new ABTestStats(RuntimeStorage::path('ab_stats.json'));
     echo json_encode(['ok' => true, 'stats' => $stats->getStats()], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {
     http_response_code(500);

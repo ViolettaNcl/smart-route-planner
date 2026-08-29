@@ -5,6 +5,7 @@ declare(strict_types=1);
 require __DIR__ . '/../../bootstrap.php';
 
 use App\ML\TransportPredictor;
+use App\Support\RuntimeStorage;
 
 /**
  * "Почему такой транспорт?" — разбор одного предсказания модели по числам
@@ -31,7 +32,7 @@ if ($distanceKm === null || $stops === null || $distanceKm < 0 || $stops < 2) {
 
 try {
     $predictor = new TransportPredictor(
-        __DIR__ . '/../../src/ML/mlp_weights.json',
+        RuntimeStorage::modelWeightsPath(),
         __DIR__ . '/../../src/ML/model_weights.json'
     );
 

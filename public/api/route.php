@@ -13,6 +13,7 @@ use App\Routing\CostEstimator;
 use App\Routing\HaversineCalculator;
 use App\Routing\OsrmRoadRouter;
 use App\Routing\RouteOptimizer;
+use App\Support\RuntimeStorage;
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -45,7 +46,7 @@ $costParams = [
     'ticket_base_fare' => $_POST['ticket_base_fare'] ?? null,
 ];
 
-$mlpWeightsPath = __DIR__ . '/../../src/ML/mlp_weights.json';
+$mlpWeightsPath = RuntimeStorage::modelWeightsPath();
 $softmaxWeightsPath = __DIR__ . '/../../src/ML/model_weights.json';
 
 // A/B-тест (см. App\ML\ABTestStats, api/feedback.php, api/ab_stats.php):
@@ -57,7 +58,7 @@ $modelVariant = in_array($modelVariant, ['mlp', 'softmax'], true) ? $modelVarian
 
 try {
     $planner = new RoutePlanner(
-        geocoder: new NominatimGeocoder(new FileCache(__DIR__ . '/../../var/geocache')),
+        geocoder: new NominatimGeocoder(new FileCache(RuntimeStorage::path('geocache'))),
         calculator: $calculator = new HaversineCalculator(),
         optimizer: new RouteOptimizer($calculator),
         predictor: new TransportPredictor($mlpWeightsPath, $softmaxWeightsPath, $modelVariant),

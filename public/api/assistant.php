@@ -8,8 +8,8 @@ use App\AI\TripAssistantService;
 
 /**
  * AI-описание поездки: короткий человеческий комментарий к посчитанному
- * маршруту (см. App\AI\TripAssistantService — LLM, если задан ключ API,
- * иначе честный офлайн fallback по правилам).
+ * маршруту (см. App\AI\TripAssistantService — Vercel AI Gateway или прямой
+ * LLM-провайдер, иначе честный офлайн fallback по правилам).
  *
  * POST /api/assistant.php
  * body: route   = JSON результата api/route.php (весь объект целиком)

@@ -2,6 +2,8 @@
 
 namespace App\Http;
 
+use App\Support\RuntimeStorage;
+
 /**
  * Тонкая обвязка над RateLimiter для использования прямо в начале
  * api/*.php файлов: одна строчка вместо повторения одного и того же
@@ -9,7 +11,7 @@ namespace App\Http;
  * эндпоинте.
  *
  * Каждый защищённый эндпоинт получает свой файл состояния в
- * var/ratelimit/{name}.json — так лимиты разных эндпоинтов не мешают друг
+ * runtime/ratelimit/{name}.json — так лимиты разных эндпоинтов не мешают друг
  * другу (частые подсказки городов не должны блокировать погоду, и наоборот).
  */
 class RateLimitGuard
@@ -22,7 +24,7 @@ class RateLimitGuard
      */
     public static function enforce(string $bucketName, int $capacity, int $refillSeconds): void
     {
-        $storagePath = __DIR__ . '/../../var/ratelimit/' . $bucketName . '.json';
+        $storagePath = RuntimeStorage::path('ratelimit/' . $bucketName . '.json');
         $limiter = new RateLimiter($storagePath, $capacity, $refillSeconds);
 
         $result = $limiter->attempt(ClientIdentity::ip());

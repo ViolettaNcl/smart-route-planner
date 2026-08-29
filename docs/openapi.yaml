@@ -12,11 +12,12 @@ info:
     простоты (фронтенд использует `FormData`/`URLSearchParams`, без ручной
     сериализации). Ответы — всегда JSON.
 
-    Ни один эндпоинт не требует API-ключа для базовой работы; ключи
-    (`ANTHROPIC_API_KEY`/`OPENAI_API_KEY`) нужны только чтобы AI-совет
-    (`/assistant.php`) использовал настоящую LLM вместо честного
+    Ни один эндпоинт не требует API-ключа для базовой работы. На Vercel
+    AI-совет (`/assistant.php`) использует AI Gateway через автоматически
+    обновляемый OIDC-токен; локально можно задать `AI_GATEWAY_API_KEY`,
+    `ANTHROPIC_API_KEY` или `OPENAI_API_KEY`. Без них работает честный
     rule-based fallback.
-  version: "1.1.0"
+  version: "1.2.0"
   license:
     name: MIT
     url: https://github.com/ViolettaNcl/smart-route-planner/blob/main/LICENSE
@@ -24,8 +25,8 @@ info:
     url: https://github.com/ViolettaNcl/smart-route-planner
 
 servers:
-  - url: https://smart-route-planner-wiwk.onrender.com/api
-    description: Живое демо
+  - url: https://smart-route-planner-violettancls-projects.vercel.app/api
+    description: Живое демо на Vercel
   - url: http://localhost:8000/api
     description: Локальный запуск (php -S)
 

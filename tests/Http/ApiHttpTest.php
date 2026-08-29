@@ -21,7 +21,7 @@ use Tests\TestReporter;
  *     геокодирования;
  *   - decision_boundary.php / explain.php / ab_stats.php — работают с уже
  *     обученными локальными весами модели, без внешних вызовов;
- *   - assistant.php — без настроенного ANTHROPIC_API_KEY гарантированно
+ *   - assistant.php — без настроенных Gateway/Anthropic/OpenAI-токенов
  *     работает в honest-fallback режиме (см. TripAssistantService), тоже
  *     без сети;
  *   - rate limiter — 'suggest' с query короче 2 символов отвечает мгновенно,

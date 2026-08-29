@@ -70,6 +70,24 @@ docker compose up --build
 Nginx/Caddy перед контейнером как reverse proxy для HTTPS (Let's Encrypt) —
 сам контейнер отдаёт обычный HTTP на порт, заданный в `PORT`.
 
+## Вариант 4 — Vercel Functions (production demo)
+
+Репозиторий уже содержит `vercel.json` и совместимые entrypoint-файлы в
+`api/`. Импортируйте GitHub-репозиторий в Vercel и оставьте Root Directory
+равным `./`. Сборка использует community runtime `vercel-php@0.7.4`
+(PHP 8.3).
+
+На Vercel отдельный OpenAI/Anthropic-ключ не нужен: AI-помощник использует
+автоматически обновляемый `VERCEL_OIDC_TOKEN` для Vercel AI Gateway. Модель
+по умолчанию — `openai/gpt-5-mini`; её можно изменить переменной
+`AI_MODEL_GATEWAY`. При необходимости статический `AI_GATEWAY_API_KEY`
+добавляется только в Project Settings → Environment Variables, но никогда
+не коммитится в GitHub.
+
+Vercel Functions используют временную файловую систему. Приложение само
+перенаправляет кэш, rate limiter, логи, A/B-статистику и дообученные веса в
+`/tmp`; эти данные могут сбрасываться после cold start или нового деплоя.
+
 ## Проверка, что всё работает
 
 ```bash
@@ -83,13 +101,13 @@ php tests/run.php
 
 Без какой-либо настройки AI-совет по поездке уже работает — офлайн, по
 понятным правилам (см. `docs/neural_net.md` и `src/AI/TripAssistantService.php`).
-Чтобы вместо этого текст генерировала настоящая LLM (Anthropic Claude или
-OpenAI), задайте ключ одним из двух способов:
+Чтобы локально текст генерировала настоящая LLM через Vercel AI Gateway,
+Anthropic или OpenAI, задайте ключ одним из двух способов:
 
 **Способ А — переменная окружения** (встроенный сервер PHP):
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...
+export AI_GATEWAY_API_KEY=...   # либо ANTHROPIC_API_KEY / OPENAI_API_KEY
 php -S localhost:8000 -t public
 ```
 

@@ -11,6 +11,7 @@ use App\Routing\RoadRouterInterface;
 use App\Routing\RouteOptimizer;
 use App\Routing\TravelTimeEstimator;
 use App\Support\Logger;
+use App\Support\RuntimeStorage;
 
 /**
  * Основной сервис приложения: принимает сырой пользовательский ввод,
@@ -39,7 +40,7 @@ class RoutePlanner
         $this->timeEstimator ??= new TravelTimeEstimator();
         $this->costEstimator ??= new CostEstimator();
         $this->emissionsEstimator ??= new EmissionsEstimator();
-        $this->logger = $logger ?? new Logger(__DIR__ . '/../var/app.log');
+        $this->logger = $logger ?? new Logger(RuntimeStorage::path('app.log'));
     }
 
     /**

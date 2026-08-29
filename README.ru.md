@@ -7,7 +7,7 @@
 [🇬🇧 English version](README.md)
 
 <p>
-  <a href="https://smart-route-planner-wiwk.onrender.com"><img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square&logo=render&logoColor=white" alt="Live demo"></a>
+  <a href="https://smart-route-planner-violettancls-projects.vercel.app"><img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square&logo=vercel&logoColor=white" alt="Live demo"></a>
   <img src="https://github.com/violettancl/smart-route-planner/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/PHP-8.1+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.1+">
@@ -17,8 +17,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="Лицензия MIT">
 </p>
 
-**[Живое демо →](https://smart-route-planner-wiwk.onrender.com)**
-(бесплатный тариф — первый заход после простоя занимает 30–50 секунд, дальше работает быстро)
+**[Живое демо →](https://smart-route-planner-violettancls-projects.vercel.app)**
 
 </div>
 
@@ -81,8 +80,8 @@
   каждому классу (одна accuracy маскирует перекосы на несбалансированных
   классах) и 5-fold кросс-валидация вместо одного случайного train/val
   сплита (`App\ML\ModelEvaluator`).
-- **AI-ассистент поездки** — после расчёта маршрута LLM (Anthropic или
-  OpenAI, при наличии ключа API) генерирует короткий человеческий комментарий:
+- **AI-ассистент поездки** — после расчёта маршрута LLM через Vercel AI
+  Gateway (OIDC на Vercel), Anthropic или OpenAI генерирует короткий комментарий:
   где сделать привал, нужна ли ночёвка на длинном перегоне, на что обратить
   внимание в погоде. Без ключа API — офлайн rule-based fallback, интерфейс
   честно помечает, какой вариант сработал.
@@ -159,7 +158,7 @@
 
 ## Быстрый старт
 
-Проще всего — открыть **[живое демо](https://smart-route-planner-wiwk.onrender.com)**, установка не нужна.
+Проще всего — открыть **[живое демо](https://smart-route-planner-violettancls-projects.vercel.app)**, установка не нужна.
 
 Для локального запуска: без базы данных, Composer опционален. Обученные
 веса модели уже включены в репозиторий (`src/ML/mlp_weights.json`) —
@@ -181,11 +180,12 @@ php bin/train_model.php
 
 AI-ассистент поездки и точки интереса/погода работают из коробки без
 настройки (офлайн-fallback для AI-текста, бесплатные Overpass/Open-Meteo для
-геоданных). Чтобы ассистент вызывал настоящую LLM вместо rule-based
-fallback, задайте переменную окружения перед запуском сервера:
+геоданных). На Vercel ассистент использует AI Gateway с автоматически
+управляемым `VERCEL_OIDC_TOKEN`. Локально или на VPS задайте Gateway-ключ
+либо ключ прямого провайдера:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # или OPENAI_API_KEY=sk-...
+export AI_GATEWAY_API_KEY=...        # или ANTHROPIC_API_KEY / OPENAI_API_KEY
 php -S localhost:8000 -t public
 ```
 
@@ -211,13 +211,13 @@ docker compose up --build
 | Геокодирование | OpenStreetMap Nominatim, cURL, файловый кэш |
 | Маршрутизация | OSRM (реальные дороги) с откатом на Haversine + Nearest Neighbor/2-opt |
 | Machine Learning | MLP (скрытый слой + backprop с нуля) и softmax-регрессия — градиентный спуск, кросс-энтропийная потеря; K-Means (метод Ллойда, с нуля) — unsupervised-кластеризация плана по дням |
-| AI-ассистент | Anthropic Messages API / OpenAI Chat Completions (опционально), rule-based офлайн-fallback |
+| AI-ассистент | Vercel AI Gateway (OIDC), резерв Anthropic/OpenAI, rule-based офлайн-fallback |
 | Геоданные | Overpass API (точки интереса), Open-Meteo (погода) — оба без ключа |
 | Frontend | Vanilla JS (fetch API), Leaflet.js, Chart.js, CSS custom properties (темизация) |
 | Тестирование | Собственный минимальный test-runner (без зависимостей); HTTP-интеграционные тесты через `php -S` |
 | Rate limiting | Token bucket с нуля (`App\Http\RateLimiter`), файловое хранилище с `flock` |
 | CI/CD | GitHub Actions — lint + тесты на PHP 8.1/8.2/8.3, smoke-тест сервера, `composer audit`, автосборка Docker-образа, Dependabot |
-| Деплой | Docker + docker-compose (`php:8.3-apache`); [живое демо на Render](https://smart-route-planner-wiwk.onrender.com); также работает на обычном shared-хостинге/XAMPP без Docker |
+| Деплой | [Vercel Functions](https://smart-route-planner-violettancls-projects.vercel.app) с PHP 8.3 runtime; также поддерживаются Docker/VPS и shared-хостинг/XAMPP |
 
 ## Документация
 
@@ -265,8 +265,9 @@ explain/assistant «живьём») — 132 теста в сумме. Гоняю
   валидационной выборке. Разобрано с цифрами по нескольким seed в
   [`docs/neural_net.md`](docs/neural_net.md): ценность MLP здесь — в
   архитектуре и заделе на будущее, а не в текущем скачке accuracy.
-- AI-совет по поездке — офлайн rule-based текст, если не задан
-  `ANTHROPIC_API_KEY` / `OPENAI_API_KEY`; интерфейс честно это помечает.
+- AI-совет использует Vercel AI Gateway при наличии `VERCEL_OIDC_TOKEN` или
+  `AI_GATEWAY_API_KEY`, затем пробует прямые ключи Anthropic/OpenAI и только
+  после этого переходит на rule-based fallback. Источник виден в интерфейсе.
 - Overpass (точки интереса) и Open-Meteo (погода) — бесплатные публичные
   сервисы без SLA; при недоступности приложение просто не показывает этот
   блок, не ломая расчёт основного маршрута.
@@ -291,10 +292,9 @@ explain/assistant «живьём») — 132 теста в сумме. Гоняю
   заканчивается разумный день вождения», а не бронирование отеля.
   Кластеризация всегда учитывает исходный порядок точек (день не может
   «прыгнуть» назад) — см. докблок `App\ML\KMeansDaySplitter`.
-- **Бесплатный тариф Render** (живое демо) засыпает после 15 минут простоя —
-  первый заход после сна занимает 30–50 секунд; постоянного диска нет,
-  поэтому кэш геокодирования и статистика A/B-теста обнуляются при каждом
-  новом деплое (сам расчёт маршрута это не ломает).
+- Файловое хранилище Vercel Functions временное: кэш геокодирования,
+  статистика A/B-теста, rate-limit, логи и дообученные веса могут сбрасываться
+  после cold start или деплоя. Основной расчёт маршрута от этого не зависит.
 - Цвет заставки PWA (`manifest.webmanifest`, `theme_color`/`background_color`)
   фиксирован тёмным — переключатель темы в интерфейсе на него не влияет, он
   рисуется до загрузки JS.

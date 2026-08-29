@@ -36,7 +36,7 @@ if (is_file($composerAutoload)) {
 }
 
 // Необязательный локальный конфиг (не в git) — сюда можно положить
-// putenv('ANTHROPIC_API_KEY=...') для App\AI\TripAssistantService. Удобно
+// putenv('AI_GATEWAY_API_KEY=...') для App\AI\TripAssistantService. Удобно
 // для XAMPP/Apache, где переменные окружения не всегда просто прокинуть
 // через shell export. Шаблон см. в config.local.php.example.
 $localConfig = __DIR__ . '/config.local.php';

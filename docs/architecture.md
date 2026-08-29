@@ -9,10 +9,11 @@
 не выполняется — каждый класс только предоставляет методы, поэтому вся
 бизнес-логика (кроме HTTP-обвязки) покрыта тестами без поднятия веб-сервера.
 
-База данных не используется: постоянное состояние — только файлы на диске:
-кэш геокодирования (`var/geocache/`), состояние rate limiter'а
-(`var/ratelimit/`), статистика A/B-теста (`var/ab_stats.json`) и веса
-обученной модели (`src/ML/model_weights.json`, `src/ML/mlp_weights.json`).
+База данных не используется. Исходные веса модели хранятся в репозитории
+(`src/ML/model_weights.json`, `src/ML/mlp_weights.json`), а изменяемое
+состояние (кэш, rate limiter, A/B-статистика, логи и дообученные веса)
+проходит через `RuntimeStorage`: локально это `var/`, на Vercel — временный
+`/tmp`.
 
 Проект вырос из простого расчёта маршрута в набор независимых фич,
 каждая — отдельный API-эндпоинт, который не блокирует и не ломает основной
@@ -24,6 +25,8 @@
 ```text
 bootstrap.php                 # Автозагрузчик классов (работает без composer install)
 composer.json                 # PSR-4 автозагрузка (опционально, для composer dump-autoload)
+vercel.json                   # PHP 8.3 runtime и маршруты Vercel Functions
+api/                          # Тонкие Vercel-entrypoints к public/ и public/api/
 bin/
   train_model.php             # CLI: обучает MLP и Softmax, сохраняет веса и печатает точность обеих моделей
 public/
@@ -80,7 +83,7 @@ src/
     mlp_weights.trained.json           # Резервная копия/эталон весов MLP для api/reset_model.php
     model_weights.json                  # Веса Softmax-baseline
   AI/
-    TripAssistantService.php      # AI-совет по поездке: LLM (Anthropic/OpenAI) либо rule-based fallback
+    TripAssistantService.php      # AI-совет: Vercel AI Gateway / Anthropic / OpenAI / fallback
   Weather/
     OpenMeteoClient.php            # Погода по точкам маршрута (без ключа)
   Geodata/
@@ -90,7 +93,8 @@ src/
     ClientIdentity.php              # Определение клиента по IP (с опциональным доверием X-Forwarded-For)
     RateLimitGuard.php               # Обвязка: одна строка в начале api/*.php -> 429 при превышении лимита
   Support/
-    Logger.php                     # Файловый логгер без зависимостей (var/app.log) — fallback-переключения
+    RuntimeStorage.php             # var/ локально, доступный для записи /tmp на Vercel
+    Logger.php                     # Файловый логгер без зависимостей — fallback-переключения
 tests/
   run.php                      # Точка входа: php tests/run.php
   TestReporter.php              # Мини-замена ассертов PHPUnit
@@ -167,7 +171,7 @@ docker-compose.yml              # Локальный запуск / просто
 
 | Эндпоинт | Что делает |
 |---|---|
-| `api/assistant.php` | AI-совет по поездке: LLM (Anthropic/OpenAI, если задан ключ) либо офлайн rule-based fallback (`App\AI\TripAssistantService`) |
+| `api/assistant.php` | AI-совет: Vercel AI Gateway (OIDC), Anthropic/OpenAI либо офлайн fallback (`App\AI\TripAssistantService`) |
 | `api/weather.php` | Погода по каждой точке маршрута через Open-Meteo, без ключа API (`App\Weather\OpenMeteoClient`) |
 | `api/poi.php` | Точки интереса (АЗС/кафе/рестораны/отели) рядом с маршрутом через Overpass API, без ключа (`App\Geodata\OverpassPoiFinder`) |
 | `api/day_plan.php` | Делит уже посчитанный маршрут на сбалансированные по километражу дни вождения (`App\ML\KMeansDaySplitter`, unsupervised K-Means) |
@@ -230,13 +234,14 @@ docker-compose.yml              # Локальный запуск / просто
 | `KMeansDaySplitter` | Unsupervised K-Means (метод Ллойда, 1D по кумулятивной дистанции) — план по дням, сохраняя порядок городов |
 | `TransportPredictor` | Загрузка весов, предсказание транспорта, живое дообучение и сброс модели |
 | `ABTestStats` | Файловое хранилище счётчиков A/B-теста MLP vs Softmax |
-| `TripAssistantService` | AI-совет по поездке — вызов LLM (Anthropic/OpenAI) либо rule-based fallback |
+| `TripAssistantService` | AI-совет — Gateway с OIDC, прямые провайдеры и rule-based fallback |
 | `OpenMeteoClient` | Погода по точкам маршрута |
 | `OverpassPoiFinder` | Точки интереса рядом с маршрутом |
 | `RateLimiter` | Token bucket с нуля: непрерывное пополнение токенов, файловое хранилище с `flock`, fail-open при сбое диска |
 | `ClientIdentity` | Определение клиента по IP для rate limiting |
 | `RateLimitGuard` | Обвязка над `RateLimiter` для использования в одну строку в начале `api/*.php` — 429 при превышении |
-| `Logger` | Файловый логгер без зависимостей (`var/app.log`) — фиксирует fallback-переключения (OSRM→Haversine, LLM→rule-based) |
+| `RuntimeStorage` | Единый путь для кэша, rate-limit, логов и изменяемых весов: `var/` локально, `/tmp` на Vercel |
+| `Logger` | Файловый логгер без зависимостей — фиксирует fallback-переключения (OSRM→Haversine, LLM→rule-based) |
 | `Tests\Http\HttpTestServer` | Поднимает настоящий `php -S`, даёт `get()`/`post()` через cURL — основа HTTP-интеграционных тестов |
 | `public/assets/js/app.js` | Оркестрация фронтенда: fetch к API, состояние формы, рендер карточек/карты/виджетов фич, обработчики событий |
 | `public/assets/js/ui.js` | UI-слой без обращений к API: тема (светлая/тёмная, localStorage), синхронизация темы с картой и графиком модели, вкладки панели результата |
@@ -255,8 +260,8 @@ docker-compose.yml              # Локальный запуск / просто
   OpenStreetMap, обязательная атрибуция ODbL сохранена в интерфейсе.
 - **Overpass API** — точки интереса рядом с маршрутом (см. `OverpassPoiFinder`).
 - **Open-Meteo** — погода по точкам маршрута, без ключа (см. `OpenMeteoClient`).
-- **Anthropic Messages API / OpenAI Chat Completions** — опционально, для
-  настоящего LLM-вывода AI-ассистента поездки (см. `TripAssistantService`);
+- **Vercel AI Gateway / Anthropic / OpenAI** — Gateway с OIDC используется
+  на Vercel, прямые ключи остаются резервом (см. `TripAssistantService`);
   без ключа — честный rule-based fallback.
 - **Google Maps / Яндекс.Карты** — генерация ссылок на готовый маршрут (открывается
   в новой вкладке, не встроено).

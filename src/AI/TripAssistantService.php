@@ -3,6 +3,7 @@
 namespace App\AI;
 
 use App\Support\Logger;
+use App\Support\RuntimeStorage;
 
 /**
  * AI-ассистент поездки: превращает посчитанный маршрут (точки, дистанция,
@@ -13,11 +14,10 @@ use App\Support\Logger;
  *
  * ## Два режима работы — честно, не спрятано в коде
  *
- * 1. **LLM-режим**: если задан ключ API (переменная окружения
- *    ANTHROPIC_API_KEY или OPENAI_API_KEY — см. .env.example / setup_guide),
- *    сервис реально обращается к LLM (Anthropic Messages API или
- *    OpenAI Chat Completions) и просит модель написать короткий, дружелюбный
- *    комментарий к маршруту на русском языке.
+ * 1. **LLM-режим**: сервис сначала использует Vercel AI Gateway через
+ *    автоматически обновляемый VERCEL_OIDC_TOKEN или AI_GATEWAY_API_KEY.
+ *    Если Gateway недоступен, пробует прямые ANTHROPIC_API_KEY и
+ *    OPENAI_API_KEY. Модель пишет короткий комментарий к маршруту.
  * 2. **Офлайн fallback**: если ключа нет (например, сразу после git clone,
  *    без какой-либо настройки), сервис генерирует текст по понятным
  *    правилам — без обращения к сети. Функциональность работает "из коробки"
@@ -31,11 +31,14 @@ use App\Support\Logger;
  */
 class TripAssistantService
 {
+    private const GATEWAY_ENDPOINT = 'https://ai-gateway.vercel.sh/v1/chat/completions';
     private const ANTHROPIC_ENDPOINT = 'https://api.anthropic.com/v1/messages';
     private const OPENAI_ENDPOINT = 'https://api.openai.com/v1/chat/completions';
 
+    private ?string $gatewayToken;
     private ?string $anthropicKey;
     private ?string $openaiKey;
+    private string $gatewayModel;
     private string $anthropicModel;
     private string $openaiModel;
     private Logger $logger;
@@ -44,17 +47,22 @@ class TripAssistantService
         ?string $anthropicKey = null,
         ?string $openaiKey = null,
         string $anthropicModel = 'claude-haiku-4-5-20251001',
-        string $openaiModel = 'gpt-4o-mini',
+        string $openaiModel = 'gpt-5-mini',
         private int $timeoutSeconds = 12,
         ?Logger $logger = null,
+        ?string $gatewayToken = null,
+        string $gatewayModel = 'openai/gpt-5-mini',
     ) {
-        // Ключи можно передать явно (удобно для тестов) — если не переданы,
+        // Токены можно передать явно (удобно для тестов) — если не переданы,
         // читаем из окружения. Так секреты не попадают в код и в git.
         $this->anthropicKey = $anthropicKey ?? (getenv('ANTHROPIC_API_KEY') ?: null);
         $this->openaiKey = $openaiKey ?? (getenv('OPENAI_API_KEY') ?: null);
+        $this->gatewayToken = $gatewayToken
+            ?? (getenv('AI_GATEWAY_API_KEY') ?: (getenv('VERCEL_OIDC_TOKEN') ?: null));
+        $this->gatewayModel = getenv('AI_MODEL_GATEWAY') ?: $gatewayModel;
         $this->anthropicModel = getenv('AI_MODEL_ANTHROPIC') ?: $anthropicModel;
         $this->openaiModel = getenv('AI_MODEL_OPENAI') ?: $openaiModel;
-        $this->logger = $logger ?? new Logger(__DIR__ . '/../../var/app.log');
+        $this->logger = $logger ?? new Logger(RuntimeStorage::path('app.log'));
     }
 
     /**
@@ -65,6 +73,14 @@ class TripAssistantService
      */
     public function generateNarrative(array $route, array $weatherPoints = []): array
     {
+        if ($this->gatewayToken !== null) {
+            $text = $this->callGateway($route, $weatherPoints);
+            if ($text !== null) {
+                return ['text' => $text, 'source' => 'llm', 'provider' => 'vercel-ai-gateway'];
+            }
+            $this->logger->warning('Vercel AI Gateway call failed, trying direct providers');
+        }
+
         if ($this->anthropicKey !== null) {
             $text = $this->callAnthropic($route, $weatherPoints);
             if ($text !== null) {
@@ -82,7 +98,7 @@ class TripAssistantService
         }
 
         // Ни один LLM недоступен (нет ключа или сбой сети) — офлайн fallback.
-        if ($this->anthropicKey === null && $this->openaiKey === null) {
+        if ($this->gatewayToken === null && $this->anthropicKey === null && $this->openaiKey === null) {
             $this->logger->info('No LLM API key configured, using rule-based fallback text');
         }
 
@@ -95,12 +111,42 @@ class TripAssistantService
 
     public function isLlmConfigured(): bool
     {
-        return $this->anthropicKey !== null || $this->openaiKey !== null;
+        return $this->gatewayToken !== null || $this->anthropicKey !== null || $this->openaiKey !== null;
     }
 
     // -----------------------------------------------------------------
     // LLM-режим
     // -----------------------------------------------------------------
+
+    /**
+     * @param array<string, mixed> $route
+     * @param array<int, array<string, mixed>|null> $weatherPoints
+     */
+    private function callGateway(array $route, array $weatherPoints): ?string
+    {
+        $payload = json_encode([
+            'model' => $this->gatewayModel,
+            'max_tokens' => 400,
+            'messages' => [
+                ['role' => 'system', 'content' => $this->systemPrompt()],
+                ['role' => 'user', 'content' => $this->buildPrompt($route, $weatherPoints)],
+            ],
+        ]);
+
+        $body = $this->post(self::GATEWAY_ENDPOINT, $payload, [
+            'Authorization: Bearer ' . $this->gatewayToken,
+            'content-type: application/json',
+        ]);
+
+        if ($body === null) {
+            return null;
+        }
+
+        $data = json_decode($body, true);
+        $text = $data['choices'][0]['message']['content'] ?? null;
+
+        return is_string($text) && trim($text) !== '' ? trim($text) : null;
+    }
 
     /**
      * @param array<string, mixed> $route

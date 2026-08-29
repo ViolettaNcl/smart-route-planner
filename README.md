@@ -7,7 +7,7 @@
 [🇷🇺 Русская версия](README.ru.md)
 
 <p>
-  <a href="https://smart-route-planner-wiwk.onrender.com"><img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square&logo=render&logoColor=white" alt="Live demo"></a>
+  <a href="https://smart-route-planner-violettancls-projects.vercel.app"><img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square&logo=vercel&logoColor=white" alt="Live demo"></a>
   <img src="https://github.com/violettancl/smart-route-planner/actions/workflows/ci.yml/badge.svg" alt="CI">
   <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
   <img src="https://img.shields.io/badge/PHP-8.1+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.1+">
@@ -17,8 +17,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
 </p>
 
-**[Live demo →](https://smart-route-planner-wiwk.onrender.com)**
-(free-tier hosting: the first request after idle takes 30–50s to wake up, then runs normally)
+**[Live demo →](https://smart-route-planner-violettancls-projects.vercel.app)**
 
 </div>
 
@@ -81,8 +80,8 @@ What this project is meant to demonstrate:
   recall / F1 (accuracy alone hides class imbalance), and 5-fold
   cross-validation instead of a single random train/val split
   (`App\ML\ModelEvaluator`).
-- **AI trip assistant** — after a route is calculated, an LLM (Anthropic or
-  OpenAI, if an API key is configured) writes a short human note: where to
+- **AI trip assistant** — after a route is calculated, an LLM through Vercel
+  AI Gateway (OIDC on Vercel), Anthropic, or OpenAI writes a short human note: where to
   rest, whether an overnight stop makes sense on a long leg, what to watch
   for in the weather. Without a key it falls back to a rule-based offline
   generator — the UI honestly labels which one produced the text.
@@ -162,7 +161,7 @@ What this project is meant to demonstrate:
 
 ## Quick Start
 
-The fastest option is the **[live demo](https://smart-route-planner-wiwk.onrender.com)** — no setup required.
+The fastest option is the **[live demo](https://smart-route-planner-violettancls-projects.vercel.app)** — no setup required.
 
 To run it locally: no database, Composer is optional. The trained model
 weights ship in the repository (`src/ML/mlp_weights.json`); you don't need
@@ -184,12 +183,12 @@ php bin/train_model.php
 
 The AI trip assistant and points-of-interest/weather features work
 out of the box with no configuration (offline fallback for the AI text,
-free Overpass/Open-Meteo APIs for geodata). For the assistant to call a real
-LLM instead of the rule-based fallback, set an environment variable before
-starting the server:
+free Overpass/Open-Meteo APIs for geodata). On Vercel, the assistant uses AI
+Gateway with the automatically managed `VERCEL_OIDC_TOKEN`. For local or VPS
+use, set a Gateway key or a direct provider key before starting the server:
 
 ```bash
-export ANTHROPIC_API_KEY=sk-ant-...   # or OPENAI_API_KEY=sk-...
+export AI_GATEWAY_API_KEY=...        # or ANTHROPIC_API_KEY / OPENAI_API_KEY
 php -S localhost:8000 -t public
 ```
 
@@ -215,13 +214,13 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | Geocoding | OpenStreetMap Nominatim, cURL, file cache |
 | Routing | OSRM (real roads) with a Haversine + Nearest Neighbor/2-opt fallback |
 | Machine learning | MLP (hidden layer + backprop from scratch) and softmax regression — gradient descent, cross-entropy loss; K-Means (Lloyd's algorithm, from scratch) — unsupervised day-plan clustering |
-| AI assistant | Anthropic Messages API / OpenAI Chat Completions (optional), rule-based offline fallback |
+| AI assistant | Vercel AI Gateway (OIDC), Anthropic/OpenAI fallback, rule-based offline fallback |
 | Geodata | Overpass API (points of interest), Open-Meteo (weather) — both keyless |
 | Frontend | Vanilla JS (fetch API), Leaflet.js, Chart.js, CSS custom properties (theming) |
 | Testing | A minimal custom test runner (no dependencies); HTTP integration tests via `php -S` |
 | Rate limiting | Token bucket from scratch (`App\Http\RateLimiter`), file storage with `flock` |
 | CI/CD | GitHub Actions — lint + tests on PHP 8.1/8.2/8.3, server smoke test, `composer audit`, automated Docker build, Dependabot |
-| Deployment | Docker + docker-compose (`php:8.3-apache`); [live demo on Render](https://smart-route-planner-wiwk.onrender.com); works on plain shared hosting/XAMPP without Docker too |
+| Deployment | [Vercel Functions](https://smart-route-planner-violettancls-projects.vercel.app) with PHP 8.3 runtime; Docker/VPS and shared hosting/XAMPP remain supported |
 
 ## Documentation
 
@@ -270,8 +269,9 @@ end-to-end) — 132 tests in total. Runs automatically in CI on every push
   [`docs/neural_net.md`](docs/neural_net.md): the value of the MLP here is
   the architecture and the room for future non-linear features, not a
   current accuracy jump.
-- The AI trip note is a rule-based offline text unless `ANTHROPIC_API_KEY` /
-  `OPENAI_API_KEY` is configured — the UI labels which one produced it.
+- The AI trip note uses Vercel AI Gateway when `VERCEL_OIDC_TOKEN` or
+  `AI_GATEWAY_API_KEY` is available, then tries direct Anthropic/OpenAI keys,
+  and finally falls back to rule-based text. The UI labels the result source.
 - Overpass (points of interest) and Open-Meteo (weather) are free public
   services with no SLA; if unavailable, the app simply omits that panel
   without breaking the main route calculation.
@@ -297,10 +297,9 @@ end-to-end) — 132 tests in total. Runs automatically in CI on every push
   driving day ends" hint, not a hotel booking. The clustering always
   respects the original route order (a day can't "jump" backward) — see the
   docblock on `App\ML\KMeansDaySplitter`.
-- The **free Render tier** (live demo) sleeps after 15 minutes idle — the
-  first request after that takes 30–50s to wake up; it also has no
-  persistent disk, so the geocoding cache and A/B stats reset on every new
-  deploy (route calculation itself is unaffected).
+- Vercel Functions have ephemeral runtime storage. Geocoding cache, A/B stats,
+  rate-limit state, logs, and live-learning weights can reset after a cold
+  start or deployment; core route calculation is unaffected.
 - The PWA splash-screen color (`manifest.webmanifest`, `theme_color` /
   `background_color`) is fixed to the dark theme — the in-app light/dark
   toggle doesn't affect it, since it's rendered before any JS runs.
