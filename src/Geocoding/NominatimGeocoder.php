@@ -2,16 +2,19 @@
 
 namespace App\Geocoding;
 
+use App\Http\SafeHttpClient;
+
 /**
  * Геокодер на основе публичного API OpenStreetMap Nominatim.
  *
  * По сравнению с первой версией проекта:
- * - используется cURL с таймаутом вместо file_get_contents (не подвешивает
- *   весь запрос, если Nominatim не отвечает);
+ * - используется короткий сетевой таймаут;
  * - результаты кэшируются на диске (см. FileCache) — тот же город второй раз
  *   не запрашивается по сети;
  * - выдерживается пауза между запросами согласно политике использования
- *   Nominatim (не более 1 запроса в секунду).
+ *   Nominatim (не более 1 запроса в секунду);
+ * - сетевой слой не зависит жёстко от ext-curl: на serverless/Vercel есть
+ *   fallback на PHP streams, чтобы отсутствие curl не роняло весь API.
  */
 class NominatimGeocoder implements GeocoderInterface
 {
@@ -85,26 +88,12 @@ class NominatimGeocoder implements GeocoderInterface
             'addressdetails' => 0,
         ]);
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => ["User-Agent: {$this->userAgent}"],
-            CURLOPT_TIMEOUT => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->timeoutSeconds,
+        $body = SafeHttpClient::get($url, $this->timeoutSeconds, [
+            "User-Agent: {$this->userAgent}",
+            'Accept: application/json',
         ]);
 
-        $body = curl_exec($ch);
-        $error = curl_error($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        // Намеренно без curl_close($ch): начиная с PHP 8.0 CurlHandle — это
-        // обычный объект, который освобождается сборщиком мусора сам, без
-        // явного закрытия; с PHP 8.5 curl_close() ещё и помечена deprecated
-        // (см. https://php.watch) — на build-in сервере (`php -S`) это
-        // предупреждение попадает прямиком в тело JSON-ответа и ломает его
-        // парсинг на фронтенде. Просто не вызываем — во всех похожих местах
-        // проекта (OsrmRoadRouter, OverpassPoiFinder, OpenMeteoClient и др.).
-
-        if ($body === false || $error !== '' || $status !== 200) {
+        if ($body === null) {
             return [];
         }
 
@@ -141,19 +130,12 @@ class NominatimGeocoder implements GeocoderInterface
             'limit' => 1,
         ]);
 
-        $ch = curl_init($url);
-        curl_setopt_array($ch, [
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_HTTPHEADER => ["User-Agent: {$this->userAgent}"],
-            CURLOPT_TIMEOUT => $this->timeoutSeconds,
-            CURLOPT_CONNECTTIMEOUT => $this->timeoutSeconds,
+        $body = SafeHttpClient::get($url, $this->timeoutSeconds, [
+            "User-Agent: {$this->userAgent}",
+            'Accept: application/json',
         ]);
 
-        $body = curl_exec($ch);
-        $error = curl_error($ch);
-        $status = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-
-        if ($body === false || $error !== '' || $status !== 200) {
+        if ($body === null) {
             return null;
         }
 
