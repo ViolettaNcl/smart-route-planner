@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 const baseUrl = (process.env.PRODUCTION_URL || 'https://smart-route-planner-violettancls-projects.vercel.app').replace(/\/$/, '');
 const expectedCommit = String(process.env.EXPECTED_COMMIT_SHA || '').trim().slice(0, 12);
 const waitMs = Math.max(0, Number(process.env.SMOKE_WAIT_MS || 0));
+const requireIndexable = process.env.REQUIRE_INDEXABLE === '1';
 
 function sleep(milliseconds) {
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -55,7 +56,12 @@ const home = await fetchChecked('/?smoke=' + Date.now());
 assert.match(home.body, /assets\/js\/product\.js\?v=11/);
 assert.match(home.body, /id="route-stop-list"/);
 assert.match(home.body, /rel="canonical"/);
-assert.doesNotMatch(String(home.response.headers.get('x-robots-tag') || ''), /noindex/i);
+assert.match(home.body, /<meta name="robots" content="index,follow/);
+const robotsHeader = String(home.response.headers.get('x-robots-tag') || '');
+const indexable = !/noindex/i.test(robotsHeader);
+if (requireIndexable) {
+    assert.equal(indexable, true, `Production returned X-Robots-Tag: ${robotsHeader || '(empty)'}`);
+}
 
 const robots = await fetchChecked('/robots.txt');
 assert.match(robots.body, /Allow:\s*\//);
@@ -89,6 +95,8 @@ const report = {
     version: health.version,
     environment: health.environment,
     providers: health.providers,
+    indexable,
+    robotsHeader: robotsHeader || null,
     routeOptions: route.route_options.length,
     navigation: route.route_options.some((option) => option.navigation_available),
     checkedAt: new Date().toISOString(),

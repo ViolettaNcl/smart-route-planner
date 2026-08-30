@@ -323,6 +323,11 @@ end-to-end), plus deterministic browser and live-production flows. Runs automati
 - Localization (RU/EN) covers the whole UI, but server error messages are
   only translated for known `error_code` values; unrecognized errors are
   shown as-is (in Russian).
+- The repository ships canonical metadata, `robots.txt`, and `sitemap.xml`,
+  while the current Vercel alias is still returned with the platform-level
+  `X-Robots-Tag: noindex`. Attach an indexable production/custom domain, set
+  `APP_PUBLIC_URL`, then run production smoke with `REQUIRE_INDEXABLE=1` to
+  make search visibility a release gate.
 - The K-Means day plan balances days **by driving distance**, not by actual
   lodging availability in a given city — it's a "roughly where a sensible
   driving day ends" hint, not a hotel booking. The clustering always
