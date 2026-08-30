@@ -346,30 +346,42 @@ if (typeof calculateRoute === 'function') {
 
         const body = new URLSearchParams();
         body.set('points', points);
+        if (window.routeEditor) body.set('stops_json', window.routeEditor.serialize());
+        body.set('optimize_order', document.getElementById('optimize-order')?.checked ? '1' : '0');
         body.set('fuel_price_per_liter', costFuelPrice.value);
         body.set('fuel_consumption_l_100km', costFuelConsumption.value);
         body.set('ticket_price_per_km', costTicketPrice.value);
         body.set('model_variant', getAbVariant());
 
         let response;
+        const requestController = new AbortController();
+        const requestTimeout = window.setTimeout(() => requestController.abort(), 45_000);
         try {
             response = await fetch('/api/route.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                 body: body.toString(),
+                signal: requestController.signal,
             });
         } catch (error) {
             console.error('[Smart Route Planner] Route request failed:', error);
-            showError(t('genericNetworkError'));
+            showError(error && error.name === 'AbortError'
+                ? routeUiMessage(
+                    'Расчёт занял больше 45 секунд и был остановлен. Уменьшите число адресов или повторите запрос.',
+                    'The calculation exceeded 45 seconds and was stopped. Use fewer addresses or try again.'
+                )
+                : t('genericNetworkError'));
+            window.clearTimeout(requestTimeout);
             setLoading(false);
             return;
         }
-
         let raw;
         try {
             raw = await response.text();
+            window.clearTimeout(requestTimeout);
         } catch (error) {
             console.error('[Smart Route Planner] Could not read route response:', error);
+            window.clearTimeout(requestTimeout);
             showError(t('genericNetworkError'));
             setLoading(false);
             return;

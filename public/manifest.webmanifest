@@ -1,14 +1,28 @@
 {
   "name": "Smart Route Planner",
   "short_name": "RoutePlanner",
-  "description": "Веб-калькулятор маршрутов с TSP-оптимизацией, предсказанием транспорта и оценкой стоимости поездки.",
-  "start_url": "./index.php",
-  "scope": "./",
+  "description": "Редактор поездок с дорожными альтернативами, навигационными инструкциями, оптимизацией остановок и экспортом маршрута.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait-primary",
   "background_color": "#0d1118",
   "theme_color": "#0d1118",
   "lang": "ru",
+  "categories": ["navigation", "travel", "utilities"],
+  "shortcuts": [
+    {
+      "name": "Новый маршрут",
+      "short_name": "Маршрут",
+      "url": "/"
+    },
+    {
+      "name": "Демо-маршрут",
+      "short_name": "Демо",
+      "url": "/?demo=1"
+    }
+  ],
   "icons": [
     {
       "src": "assets/icons/icon-192.png",
