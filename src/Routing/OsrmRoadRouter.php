@@ -99,7 +99,10 @@ class OsrmRoadRouter implements RoadRouterInterface
         ];
     }
 
-    /** @return array<string, mixed>|null */
+    /**
+     * @param array<string, mixed> $route
+     * @return array<string, mixed>|null
+     */
     private function normalizeRoute(array $route, int $index): ?array
     {
         $coordinates = $route['geometry']['coordinates'] ?? null;
@@ -145,7 +148,10 @@ class OsrmRoadRouter implements RoadRouterInterface
         ];
     }
 
-    /** @return array<string, mixed> */
+    /**
+     * @param array<string, mixed> $step
+     * @return array<string, mixed>
+     */
     private function normalizeStep(array $step, int $legIndex, int $stepIndex): array
     {
         $maneuver = is_array($step['maneuver'] ?? null) ? $step['maneuver'] : [];
