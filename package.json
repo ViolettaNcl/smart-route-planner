@@ -1,6 +1,14 @@
 {
   "private": true,
+  "scripts": {
+    "test:frontend": "node tests/frontend-route-scene.test.js && node tests/frontend-integrity.test.js",
+    "test:e2e": "playwright test",
+    "smoke:production": "node tests/production-smoke.mjs"
+  },
   "engines": {
     "node": "22.x"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
   }
 }

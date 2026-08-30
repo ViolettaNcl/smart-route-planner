@@ -53,8 +53,8 @@ The second feature, number of stops, is scaled to roughly 0–1:
 
 ## Training Data — an Honest Note
 
-The app doesn't accumulate a history of real user decisions (routes aren't
-saved), so there's literally no "statistics" to train on. `App\ML\Dataset`
+Local route history is not uploaded and does not contain user-consented
+transport labels, so there is no real training corpus yet. `App\ML\Dataset`
 generates a **synthetic** dataset instead:
 
 1. Distance and number of stops are randomly generated within realistic
@@ -73,8 +73,8 @@ sets a sensible accuracy ceiling — the model physically cannot (and should
 not) guess the noised labels correctly, so 100% accuracy is a deliberately
 unreachable and undesirable target.
 
-**If route history storage is ever added to the app**, this synthetic
-dataset can be swapped for real user data without touching
+**If consented, anonymized training examples are ever collected**, this
+synthetic dataset can be swapped for real data without touching
 `SoftmaxClassifier` at all — it has no knowledge of where its training
 examples came from.
 

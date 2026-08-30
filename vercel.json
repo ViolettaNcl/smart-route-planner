@@ -6,10 +6,36 @@
       "maxDuration": 60
     }
   },
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Content-Type-Options", "value": "nosniff" },
+        { "key": "X-Frame-Options", "value": "DENY" },
+        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
+        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
+        { "key": "Strict-Transport-Security", "value": "max-age=31536000" }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [{ "key": "X-Robots-Tag", "value": "index, follow" }]
+    },
+    {
+      "source": "/api/(.*)",
+      "headers": [{ "key": "Cache-Control", "value": "no-store" }]
+    },
+    {
+      "source": "/service-worker.js",
+      "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }]
+    }
+  ],
   "routes": [
     { "src": "/assets/(.*)", "dest": "/public/assets/$1" },
     { "src": "/manifest.webmanifest", "dest": "/public/manifest.webmanifest" },
     { "src": "/service-worker.js", "dest": "/public/service-worker.js" },
+    { "src": "/robots.txt", "dest": "/public/robots.txt" },
+    { "src": "/sitemap.xml", "dest": "/public/sitemap.xml" },
     { "src": "/api/([A-Za-z_]+)\\.php", "dest": "/api/index.php?endpoint=$1" },
     { "src": "/", "dest": "/api/index.php?home=1" }
   ]
