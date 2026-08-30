@@ -157,14 +157,14 @@ docker-compose.yml              # Local run / simple VPS deployment
    visit for the A/B test (`model_variant`: `mlp` or `softmax`, 50/50) — the
    frontend honestly shows the user which data source and which model were
    used.
-5. `app.js` updates the result cards (including time, cost, CO2) and
-   redraws the MapLibre GL JS vector map — the route line follows the real road geometry
-   (rendered as a multi-hue gradient, with start/end markers styled
-   separately from intermediate stops) when geometry is available, or
-   straight lines between cities otherwise. The OpenFreeMap style
-   (dark/light) and the decision-boundary chart colors follow the selected
-   UI theme via `ui.js`; a separate control switches between flat 2D and
-   perspective 3D with extruded buildings.
+5. `app.js` updates the result cards (including time, cost, CO2) and starts a
+   MapLibre GL JS route scene: the camera frames the trip, the line is drawn
+   progressively from the real road geometry, and the compact summary is then
+   revealed. `ui.js` keeps the OpenFreeMap style in sync with the UI theme;
+   2D and 3D switch without recreating the map. Extruded buildings,
+   Mapterhorn terrain/hillshade, globe atmosphere, and lighting are independent
+   progressive enhancements. If WebGL or the base style fails, an SVG view is
+   generated from the API response coordinates without affecting route data.
 
 ## Additional API Endpoints (after the main route calculation)
 

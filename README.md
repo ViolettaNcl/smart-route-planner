@@ -110,8 +110,19 @@ What this project is meant to demonstrate:
   hotels) via the free Overpass API — no API key required.
 - **Weather along the route** via Open-Meteo (no key) — flags heavy rain,
   extreme heat, freezing temperatures, or storms at each stop.
-- **Interactive MapLibre map** — keyless OpenFreeMap vector tiles, numbered
-  markers, real road geometry, and a 2D ⇄ 3D switch with extruded buildings.
+- **Map-first MapLibre workspace** — keyless OpenFreeMap vector tiles occupy
+  roughly 70% of the desktop scene and are visible before the first route is
+  calculated.
+- **Instant 2D ⇄ 3D switching** — extruded buildings, optional Mapterhorn
+  terrain/hillshade, globe atmosphere, and branded lighting without reloading
+  the map.
+- **Cinematic but truthful route rendering** — after the API responds, the
+  camera frames the real geometry, the route is drawn progressively, markers
+  appear, and the data-backed summary is revealed. Reduced-motion preferences
+  skip the choreography.
+- **Resilient map fallback** — if WebGL, the base style, terrain, or a 3D layer
+  fails, an SVG view derived from the returned route coordinates is shown while
+  the route results remain usable.
 - **Shareable route links with no database** — the entire route is encoded
   directly into the URL; opening the link recalculates and displays the trip
   immediately.
