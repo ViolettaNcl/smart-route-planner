@@ -21,7 +21,7 @@
 
     <!-- PWA: манифест + мета-теги, чтобы сайт можно было установить на телефон -->
     <link rel="manifest" href="manifest.webmanifest">
-    <meta name="theme-color" content="#14171c">
+    <meta name="theme-color" content="#0d1118">
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -34,6 +34,8 @@
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin>
+    <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
     <link rel="stylesheet" href="assets/css/route.css">
@@ -43,8 +45,8 @@
 <body>
 
 <div class="container">
-    <div class="top-bar">
-        <h1>
+    <header class="top-bar">
+        <div class="brand-lockup">
             <span class="logo-mark" aria-hidden="true">
                 <svg viewBox="0 0 40 40" width="34" height="34" role="img">
                     <defs>
@@ -61,15 +63,19 @@
                         stroke-linecap="round" stroke-dasharray="0.4 5.6" />
                     <circle cx="8.5" cy="28.5" r="2.6" fill="#ffffff" />
                     <circle cx="31.5" cy="12.5" r="3.6" fill="#ffffff" />
-                    <circle cx="31.5" cy="12.5" r="3.6" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.55">
-                        <animate attributeName="r" values="3.6;6;3.6" dur="2.4s" repeatCount="indefinite" />
-                        <animate attributeName="opacity" values="0.55;0;0.55" dur="2.4s" repeatCount="indefinite" />
-                    </circle>
+                    <circle class="logo-pulse-ring" cx="31.5" cy="12.5" r="3.6" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.55" />
                 </svg>
             </span>
-            <span data-i18n="heading">Smart Route Planner</span>
-        </h1>
+            <div class="brand-copy">
+                <span class="brand-eyebrow" data-i18n="brandEyebrow">Route intelligence</span>
+                <h1 data-i18n="heading">Smart Route Planner</h1>
+            </div>
+        </div>
         <div class="top-bar-controls">
+            <div class="system-status" data-i18n-title="mapKeylessStatusHint">
+                <span class="system-status-dot" aria-hidden="true"></span>
+                <span data-i18n="mapKeylessStatus">Карта без API-ключа</span>
+            </div>
             <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Theme switch">
                 <span class="theme-toggle-icon">🌙</span>
             </button>
@@ -78,17 +84,30 @@
                 <button type="button" data-lang="en">EN</button>
             </div>
         </div>
-    </div>
+    </header>
 
     <div class="layout">
-        <div class="panel">
+        <aside class="panel" aria-labelledby="route-form-title">
+            <div class="panel-heading">
+                <span class="section-kicker" data-i18n="routeSetupKicker">01 · Маршрут</span>
+                <h2 id="route-form-title" data-i18n="routeSetupTitle">Куда отправимся?</h2>
+                <p data-i18n="routeSetupSubtitle">Добавьте минимум две точки — порядок будет оптимизирован автоматически.</p>
+            </div>
             <form id="route-form">
-                <label for="points" data-i18n="pointsLabel">Введите точки через «;»</label>
+                <label for="points" class="field-label">
+                    <span data-i18n="pointsLabel">Введите точки через «;»</span>
+                    <span class="required-mark" aria-hidden="true">*</span>
+                </label>
                 <div class="autocomplete-wrap">
                     <textarea id="points" name="points" autocomplete="off"
+                        aria-describedby="route-input-hint route-point-count"
                         data-i18n-placeholder="pointsPlaceholder"
                         placeholder="Например: Волгоград, Россия;Ростов-на-Дону, Россия;Воронеж, Россия;Москва, Россия"></textarea>
                     <ul id="suggestions" class="suggestions hidden"></ul>
+                </div>
+                <div class="route-input-meta">
+                    <span id="route-input-hint" data-i18n="routeInputHint">Разделяйте города точкой с запятой</span>
+                    <span id="route-point-count" aria-live="polite">0 точек</span>
                 </div>
 
                 <details class="cost-settings">
@@ -112,8 +131,8 @@
                 <button type="submit" id="submit-button" data-i18n="submitIdle">Рассчитать маршрут</button>
             </form>
 
-            <div id="error-banner" class="error-banner hidden"></div>
-            <div id="warning-banner" class="warning-banner hidden"></div>
+            <div id="error-banner" class="error-banner hidden" role="alert" aria-live="assertive"></div>
+            <div id="warning-banner" class="warning-banner hidden" role="status" aria-live="polite"></div>
 
             <div class="panel-highlights">
                 <div class="panel-highlights-title" data-i18n="highlightsTitle">Как это работает</div>
@@ -139,30 +158,99 @@
                     </div>
                 </div>
             </div>
-        </div>
+        </aside>
 
-        <div class="map-panel">
+        <section class="map-panel" aria-labelledby="map-canvas-title">
+            <div class="map-identity">
+                <span class="map-identity-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" width="18" height="18">
+                        <path d="M3 7.5 8.2 4l7.1 3.6L21 4.5v12L15.3 20l-7.1-3.6L3 19.5z" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                        <path d="M8.2 4v12.4m7.1-8.8V20" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".7"/>
+                    </svg>
+                </span>
+                <span class="map-identity-copy">
+                    <strong id="map-canvas-title" data-i18n="mapCanvasTitle">Навигационная сцена</strong>
+                    <small data-i18n="mapCanvasSubtitle">OpenFreeMap · OpenStreetMap · без ключа</small>
+                </span>
+            </div>
             <div id="map-mode-control" class="map-mode-control hidden" role="group" data-i18n-aria-label="mapModeLabel">
                 <button type="button" class="map-mode-btn" data-map-mode="2d" aria-pressed="false">
-                    <span class="map-mode-icon" aria-hidden="true">▱</span>
+                    <span class="map-mode-icon map-mode-icon-2d" aria-hidden="true"></span>
                     <span>2D</span>
                 </button>
                 <button type="button" class="map-mode-btn" data-map-mode="3d" aria-pressed="true">
-                    <span class="map-mode-icon map-mode-icon-3d" aria-hidden="true">◇</span>
+                    <span class="map-mode-icon map-mode-icon-3d" aria-hidden="true"></span>
                     <span>3D</span>
                 </button>
             </div>
-            <div id="map-placeholder" class="map-placeholder" data-i18n="mapPlaceholder">
-                Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.
+
+            <div id="map-scene-status" class="map-scene-status hidden" role="status" aria-live="polite">
+                <span class="map-scene-pulse" aria-hidden="true"></span>
+                <span id="map-scene-status-text"></span>
             </div>
-            <div id="map" class="hidden"></div>
-        </div>
+
+            <div id="map-trip-summary" class="map-trip-summary hidden" aria-live="polite">
+                <div class="map-summary-metric">
+                    <span data-i18n="mapSummaryDistance">Дистанция</span>
+                    <strong id="map-summary-distance">—</strong>
+                </div>
+                <div class="map-summary-metric">
+                    <span data-i18n="mapSummaryTime">В пути</span>
+                    <strong id="map-summary-time">—</strong>
+                </div>
+                <div class="map-summary-metric">
+                    <span data-i18n="mapSummaryMode">Режим</span>
+                    <strong id="map-summary-mode">—</strong>
+                </div>
+                <small id="map-summary-source"></small>
+            </div>
+
+            <div id="map-placeholder" class="map-placeholder">
+                <div class="map-placeholder-card">
+                    <div class="map-placeholder-visual" aria-hidden="true">
+                        <svg viewBox="0 0 220 96">
+                            <defs>
+                                <linearGradient id="previewRouteGradient" x1="0" y1="0" x2="1" y2="0">
+                                    <stop offset="0" stop-color="#9d7bff"/>
+                                    <stop offset=".5" stop-color="#48dbe3"/>
+                                    <stop offset="1" stop-color="#ffb547"/>
+                                </linearGradient>
+                                <filter id="previewRouteGlow" x="-30%" y="-80%" width="160%" height="260%">
+                                    <feGaussianBlur stdDeviation="4"/>
+                                </filter>
+                            </defs>
+                            <path class="preview-network" d="M8 72 42 46 74 58 112 24 150 42 210 13M14 21l40 20 42-18 37 50 72-30M28 90l48-36 52 30 41-37"/>
+                            <path class="preview-route-glow" d="M18 74C48 29 79 72 109 43s56-19 92-28" filter="url(#previewRouteGlow)"/>
+                            <path class="preview-route" d="M18 74C48 29 79 72 109 43s56-19 92-28"/>
+                            <circle class="preview-pin preview-pin-start" cx="18" cy="74" r="6"/>
+                            <circle class="preview-pin preview-pin-end" cx="201" cy="15" r="7"/>
+                        </svg>
+                    </div>
+                    <span class="section-kicker" data-i18n="mapPlaceholderKicker">Интерактивная карта</span>
+                    <strong data-i18n="mapPlaceholderTitle">Маршрут оживёт здесь</strong>
+                    <p data-i18n="mapPlaceholder">Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.</p>
+                    <div class="map-feature-pills" aria-hidden="true">
+                        <span data-i18n="mapPill2d">Точная 2D</span>
+                        <span data-i18n="mapPill3d">Рельефная 3D</span>
+                        <span data-i18n="mapPillKeyless">Без API-ключа</span>
+                    </div>
+                </div>
+            </div>
+            <div id="map" class="hidden" role="region" data-i18n-aria-label="mapAriaLabel"></div>
+        </section>
     </div>
 
     <!-- Результат расчёта: полноширинная приборная панель под строкой
          форма+карта — вместо одной длинной колонки слева, статистика идёт
          компактной лентой, а остальное разложено по вкладкам. -->
     <div id="result-section" class="hidden">
+        <div class="result-header">
+            <div>
+                <span class="section-kicker" data-i18n="routeBriefKicker">02 · Сводка</span>
+                <h2 data-i18n="routeBriefTitle">Маршрут одним взглядом</h2>
+            </div>
+            <span class="route-ready-status"><span aria-hidden="true"></span><span data-i18n="routeReady">Маршрут готов</span></span>
+        </div>
         <div class="result">
             <div class="card">
                 <span data-i18n="statStops">📍 Точек</span>
@@ -200,18 +288,18 @@
 
         <div class="tabs">
             <div class="tab-nav" role="tablist">
-                <button type="button" class="tab-nav-btn active" data-tab="cities" data-i18n="tabCities">📍 Города</button>
-                <button type="button" class="tab-nav-btn" data-tab="model" data-i18n="tabModel">🧠 Модель</button>
-                <button type="button" class="tab-nav-btn" data-tab="assistant" data-i18n="tabAssistant">🤖 AI-совет</button>
-                <button type="button" class="tab-nav-btn" data-tab="extras" data-i18n="tabExtras">🧰 Доп.</button>
-                <button type="button" class="tab-nav-btn" data-tab="share" data-i18n="tabShare">🔗 Поделиться</button>
+                <button type="button" id="tab-cities" class="tab-nav-btn active" role="tab" aria-controls="panel-cities" aria-selected="true" tabindex="0" data-tab="cities" data-i18n="tabCities">📍 Города</button>
+                <button type="button" id="tab-model" class="tab-nav-btn" role="tab" aria-controls="panel-model" aria-selected="false" tabindex="-1" data-tab="model" data-i18n="tabModel">🧠 Модель</button>
+                <button type="button" id="tab-assistant" class="tab-nav-btn" role="tab" aria-controls="panel-assistant" aria-selected="false" tabindex="-1" data-tab="assistant" data-i18n="tabAssistant">🤖 AI-совет</button>
+                <button type="button" id="tab-extras" class="tab-nav-btn" role="tab" aria-controls="panel-extras" aria-selected="false" tabindex="-1" data-tab="extras" data-i18n="tabExtras">🧰 Доп.</button>
+                <button type="button" id="tab-share" class="tab-nav-btn" role="tab" aria-controls="panel-share" aria-selected="false" tabindex="-1" data-tab="share" data-i18n="tabShare">🔗 Поделиться</button>
             </div>
 
-            <div class="tab-panel" data-tab-panel="cities">
+            <div id="panel-cities" class="tab-panel" role="tabpanel" aria-labelledby="tab-cities" tabindex="0" data-tab-panel="cities">
                 <ul id="points-list" class="points-list"></ul>
             </div>
 
-            <div class="tab-panel hidden" data-tab-panel="model">
+            <div id="panel-model" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-model" tabindex="0" data-tab-panel="model">
                 <div class="ml-inline-controls">
                     <button type="button" id="explain-toggle" class="btn-link">🔍 Почему такой транспорт?</button>
 
@@ -237,7 +325,7 @@
                 </div>
             </div>
 
-            <div class="tab-panel hidden" data-tab-panel="assistant">
+            <div id="panel-assistant" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-assistant" tabindex="0" data-tab-panel="assistant">
                 <div id="assistant-card" class="assistant-card hidden">
                     <h3 data-i18n="assistantTitle">🤖 AI-совет по поездке</h3>
                     <p id="assistant-text" class="assistant-text"></p>
@@ -245,7 +333,7 @@
                 </div>
             </div>
 
-            <div class="tab-panel hidden" data-tab-panel="extras">
+            <div id="panel-extras" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-extras" tabindex="0" data-tab-panel="extras">
                 <button type="button" id="poi-button" class="btn secondary poi-btn">
                     📍 Показать точки интереса (АЗС/кафе/отели)
                 </button>
@@ -267,7 +355,7 @@
                 </div>
             </div>
 
-            <div class="tab-panel hidden" data-tab-panel="share">
+            <div id="panel-share" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-share" tabindex="0" data-tab-panel="share">
                 <div class="links">
                     <a id="link-google" class="btn" href="#" target="_blank" data-i18n="linkGoogle">Google Maps</a>
                     <a id="link-yandex" class="btn secondary" href="#" target="_blank" data-i18n="linkYandex">Yandex Maps</a>

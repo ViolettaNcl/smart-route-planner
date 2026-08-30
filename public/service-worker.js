@@ -11,7 +11,7 @@
  * отдавать устаревший кэшированный ответ.
  */
 
-const CACHE_VERSION = 'srp-shell-v6';
+const CACHE_VERSION = 'srp-shell-v8';
 
 const SHELL_ASSETS = [
     './',

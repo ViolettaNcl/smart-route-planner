@@ -28,7 +28,7 @@ function chartGridColor() {
 }
 
 function chartSampleBorderColor() {
-    return document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#14171c';
+    return document.documentElement.getAttribute('data-theme') === 'light' ? '#ffffff' : '#0d1118';
 }
 
 let boundaryChart = null;

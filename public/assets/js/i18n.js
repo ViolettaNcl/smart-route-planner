@@ -14,8 +14,23 @@ const I18N = {
     ru: {
         pageTitle: 'Smart Route Planner',
         heading: 'Smart Route Planner',
+        brandEyebrow: 'Route intelligence',
+        mapKeylessStatus: 'Карта без API-ключа',
+        mapKeylessStatusHint: 'OpenFreeMap работает без регистрации и публичного API-ключа',
+        routeSetupKicker: '01 · Маршрут',
+        routeSetupTitle: 'Куда отправимся?',
+        routeSetupSubtitle: 'Добавьте минимум две точки — порядок будет оптимизирован автоматически.',
         pointsLabel: 'Введите точки через «;»',
         pointsPlaceholder: 'Например: Волгоград, Россия;Ростов-на-Дону, Россия;Воронеж, Россия;Москва, Россия',
+        routeInputHint: 'Разделяйте города точкой с запятой',
+        routePointCount: (n) => {
+            const mod10 = n % 10;
+            const mod100 = n % 100;
+            const noun = mod10 === 1 && mod100 !== 11
+                ? 'точка'
+                : (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14) ? 'точки' : 'точек');
+            return `${n} ${noun}`;
+        },
         submitIdle: 'Рассчитать маршрут',
         submitLoading: 'Считаю маршрут…',
         costSettingsSummary: '⚙️ Настройки стоимости поездки',
@@ -40,9 +55,33 @@ const I18N = {
         shareButton: '🔗 Скопировать ссылку на маршрут',
         shareCopied: '🔗 Ссылка скопирована в буфер обмена!',
         shareCopyFailed: (url) => `Не удалось скопировать автоматически: ${url}`,
+        mapCanvasTitle: 'Навигационная сцена',
+        mapCanvasSubtitle: 'OpenFreeMap · OpenStreetMap · без ключа',
+        mapPlaceholderKicker: 'Интерактивная карта',
+        mapPlaceholderTitle: 'Маршрут оживёт здесь',
         mapPlaceholder: 'Введите города и нажмите «Рассчитать маршрут» — здесь появится карта с оптимизированным маршрутом.',
+        mapPill2d: 'Точная 2D',
+        mapPill3d: 'Рельефная 3D',
+        mapPillKeyless: 'Без API-ключа',
+        mapAriaLabel: 'Интерактивная карта рассчитанного маршрута',
         mapModeLabel: 'Режим отображения карты',
-        mapWebglError: '3D-карта недоступна в этом браузере. Включите аппаратное ускорение или откройте сайт в современном браузере.',
+        mapWebglError: 'Интерактивная карта недоступна в этом браузере. Сводка маршрута остаётся доступной.',
+        mapStatusCalculating: 'Рассчитываю реальный маршрут…',
+        mapStatusFraming: 'Настраиваю обзор маршрута…',
+        mapStatusDrawing: 'Прорисовываю геометрию пути…',
+        mapStatusReady: 'Маршрут на карте готов',
+        mapSummaryDistance: 'Дистанция',
+        mapSummaryTime: 'В пути',
+        mapSummaryMode: 'Режим',
+        mapSummaryRoadSource: 'Маршрут следует реальным дорогам · OSRM',
+        mapSummaryFallbackSource: 'Маршрут показан по прямой · сервис дорог недоступен',
+        mapStaticMode: 'Упрощённый вид: WebGL недоступен, показана фактическая геометрия маршрута.',
+        routeBriefKicker: '02 · Сводка',
+        routeBriefTitle: 'Маршрут одним взглядом',
+        routeReady: 'Маршрут готов',
+        timelineStart: 'Старт',
+        timelineStop: 'Промежуточная точка',
+        timelineFinish: 'Финиш',
         skippedWarning: (list) => `⚠️ Не удалось распознать: ${list.join(', ')} — эти точки пропущены.`,
         genericNetworkError: 'Не удалось связаться с сервером. Проверьте соединение и попробуйте ещё раз.',
         genericRouteError: 'Не удалось построить маршрут.',
@@ -169,8 +208,16 @@ const I18N = {
     en: {
         pageTitle: 'Smart Route Planner',
         heading: 'Smart Route Planner',
+        brandEyebrow: 'Route intelligence',
+        mapKeylessStatus: 'Keyless map',
+        mapKeylessStatusHint: 'OpenFreeMap works without registration or a public API key',
+        routeSetupKicker: '01 · Route',
+        routeSetupTitle: 'Where are we going?',
+        routeSetupSubtitle: 'Add at least two stops — their order will be optimized automatically.',
         pointsLabel: "Enter stops separated by ';'",
         pointsPlaceholder: 'e.g.: Volgograd, Russia;Rostov-on-Don, Russia;Voronezh, Russia;Moscow, Russia',
+        routeInputHint: 'Separate cities with semicolons',
+        routePointCount: (n) => `${n} ${n === 1 ? 'stop' : 'stops'}`,
         submitIdle: 'Calculate route',
         submitLoading: 'Calculating…',
         costSettingsSummary: '⚙️ Trip cost settings',
@@ -195,9 +242,33 @@ const I18N = {
         shareButton: '🔗 Copy route link',
         shareCopied: '🔗 Link copied to clipboard!',
         shareCopyFailed: (url) => `Could not copy automatically: ${url}`,
+        mapCanvasTitle: 'Navigation scene',
+        mapCanvasSubtitle: 'OpenFreeMap · OpenStreetMap · keyless',
+        mapPlaceholderKicker: 'Interactive map',
+        mapPlaceholderTitle: 'Your route comes alive here',
         mapPlaceholder: 'Enter cities and click "Calculate route" — the optimized route will appear here on the map.',
+        mapPill2d: 'Precise 2D',
+        mapPill3d: 'Terrain 3D',
+        mapPillKeyless: 'No API key',
+        mapAriaLabel: 'Interactive map of the calculated route',
         mapModeLabel: 'Map display mode',
-        mapWebglError: 'The 3D map is unavailable in this browser. Enable hardware acceleration or open the site in a modern browser.',
+        mapWebglError: 'The interactive map is unavailable in this browser. The route summary remains available.',
+        mapStatusCalculating: 'Calculating the real route…',
+        mapStatusFraming: 'Framing the route…',
+        mapStatusDrawing: 'Drawing the route geometry…',
+        mapStatusReady: 'Route map ready',
+        mapSummaryDistance: 'Distance',
+        mapSummaryTime: 'Travel time',
+        mapSummaryMode: 'Mode',
+        mapSummaryRoadSource: 'Route follows real roads · OSRM',
+        mapSummaryFallbackSource: 'Straight-line route · road service unavailable',
+        mapStaticMode: 'Simplified view: WebGL is unavailable; actual route geometry is shown.',
+        routeBriefKicker: '02 · Brief',
+        routeBriefTitle: 'Your route at a glance',
+        routeReady: 'Route ready',
+        timelineStart: 'Start',
+        timelineStop: 'Intermediate stop',
+        timelineFinish: 'Finish',
         skippedWarning: (list) => `⚠️ Could not recognize: ${list.join(', ')} — these stops were skipped.`,
         genericNetworkError: 'Could not reach the server. Check your connection and try again.',
         genericRouteError: 'Could not build the route.',
@@ -383,11 +454,23 @@ function applyTranslations() {
         }
     });
 
+    document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-title');
+        const value = t(key);
+        if (typeof value === 'string') {
+            el.setAttribute('title', value);
+        }
+    });
+
     document.title = t('pageTitle');
 
     document.querySelectorAll('.lang-switch button').forEach((btn) => {
         btn.classList.toggle('active', btn.dataset.lang === lang);
     });
+
+    if (typeof window.refreshRouteUiLanguage === 'function') {
+        window.refreshRouteUiLanguage();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {

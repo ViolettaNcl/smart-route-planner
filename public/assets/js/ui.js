@@ -43,7 +43,7 @@ function setTheme(theme) {
 
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-        themeColorMeta.setAttribute('content', normalized === 'light' ? '#eef0f4' : '#14171c');
+        themeColorMeta.setAttribute('content', normalized === 'light' ? '#f3f1fb' : '#0d1118');
     }
 
     // Перекрашиваем подложку карты вслед за темой интерфейса, если карта уже создана.
@@ -70,24 +70,43 @@ function initTheme() {
 
 // --- вкладки панели результата ---
 function initResultTabs() {
-    const navButtons = document.querySelectorAll('.tab-nav-btn');
+    const navButtons = Array.from(document.querySelectorAll('.tab-nav-btn'));
     const panels = document.querySelectorAll('.tab-panel');
 
-    navButtons.forEach((btn) => {
-        btn.addEventListener('click', () => {
-            const target = btn.dataset.tab;
+    const activateTab = (btn, moveFocus = false) => {
+        const target = btn.dataset.tab;
 
-            navButtons.forEach((b) => b.classList.toggle('active', b === btn));
-            panels.forEach((panel) => {
-                panel.classList.toggle('hidden', panel.dataset.tabPanel !== target);
-            });
+        navButtons.forEach((button) => {
+            const active = button === btn;
+            button.classList.toggle('active', active);
+            button.setAttribute('aria-selected', active ? 'true' : 'false');
+            button.tabIndex = active ? 0 : -1;
+        });
+        panels.forEach((panel) => {
+            panel.classList.toggle('hidden', panel.dataset.tabPanel !== target);
+        });
 
-            // Карта могла подрасти/измениться в высоте при первом рендере
-            // (например, если пользователь только что переключился с
-            // мобильной раскладки) — на всякий случай пересчитываем размер.
-            if (typeof routeMap !== 'undefined' && routeMap && typeof routeMap.resize === 'function') {
-                routeMap.resize();
-            }
+        if (moveFocus) btn.focus();
+
+        // Карта могла подрасти/измениться в высоте при первом рендере
+        // (например, если пользователь только что переключился с
+        // мобильной раскладки) — на всякий случай пересчитываем размер.
+        if (typeof routeMap !== 'undefined' && routeMap && typeof routeMap.resize === 'function') {
+            routeMap.resize();
+        }
+    };
+
+    navButtons.forEach((btn, index) => {
+        btn.addEventListener('click', () => activateTab(btn));
+        btn.addEventListener('keydown', (event) => {
+            let nextIndex = null;
+            if (event.key === 'ArrowRight') nextIndex = (index + 1) % navButtons.length;
+            if (event.key === 'ArrowLeft') nextIndex = (index - 1 + navButtons.length) % navButtons.length;
+            if (event.key === 'Home') nextIndex = 0;
+            if (event.key === 'End') nextIndex = navButtons.length - 1;
+            if (nextIndex === null) return;
+            event.preventDefault();
+            activateTab(navButtons[nextIndex], true);
         });
     });
 }
@@ -107,46 +126,89 @@ function initResultTabs() {
 const ROUTE_TERRAIN_SOURCE_ID = 'route-terrain-dem';
 const ROUTE_TERRAIN_HILLSHADE_LAYER_ID = 'route-terrain-hillshade';
 const ROUTE_TERRAIN_TILEJSON = 'https://tiles.mapterhorn.com/tilejson.json';
+let routeTerrainUnavailable = false;
 
 function ensureRouteTerrainLayers() {
-    if (typeof routeMap === 'undefined' || !routeMap || !routeMap.isStyleLoaded()) {
-        return;
+    if (typeof routeMap === 'undefined' || !routeMap || !routeMap.isStyleLoaded() || routeTerrainUnavailable) {
+        return false;
     }
 
-    if (!routeMap.getSource(ROUTE_TERRAIN_SOURCE_ID)) {
-        routeMap.addSource(ROUTE_TERRAIN_SOURCE_ID, {
-            type: 'raster-dem',
-            url: ROUTE_TERRAIN_TILEJSON,
-            tileSize: 512,
-            attribution: 'Terrain © Mapterhorn',
-        });
+    const use3d = typeof currentMapMode !== 'undefined' && currentMapMode === '3d';
+    if (!use3d && !routeMap.getSource(ROUTE_TERRAIN_SOURCE_ID)) {
+        return false;
     }
 
-    if (!routeMap.getLayer(ROUTE_TERRAIN_HILLSHADE_LAYER_ID)) {
-        const dark = getTheme() === 'dark';
-        const beforeId = typeof BUILDINGS_LAYER_ID !== 'undefined' && routeMap.getLayer(BUILDINGS_LAYER_ID)
-            ? BUILDINGS_LAYER_ID
-            : (typeof ROUTE_GLOW_LAYER_ID !== 'undefined' && routeMap.getLayer(ROUTE_GLOW_LAYER_ID)
-                ? ROUTE_GLOW_LAYER_ID
-                : (typeof findFirstLabelLayerId === 'function' ? findFirstLabelLayerId() : undefined));
+    try {
+        if (!routeMap.getSource(ROUTE_TERRAIN_SOURCE_ID)) {
+            routeMap.addSource(ROUTE_TERRAIN_SOURCE_ID, {
+                type: 'raster-dem',
+                url: ROUTE_TERRAIN_TILEJSON,
+                tileSize: 512,
+                attribution: 'Terrain © Mapterhorn',
+            });
+        }
 
-        routeMap.addLayer({
-            id: ROUTE_TERRAIN_HILLSHADE_LAYER_ID,
-            type: 'hillshade',
-            source: ROUTE_TERRAIN_SOURCE_ID,
-            layout: {
-                visibility: typeof currentMapMode !== 'undefined' && currentMapMode === '3d'
-                    ? 'visible'
-                    : 'none',
-            },
-            paint: {
-                'hillshade-illumination-direction': 315,
-                'hillshade-exaggeration': dark ? 0.34 : 0.26,
-                'hillshade-shadow-color': dark ? 'rgba(5, 12, 20, 0.72)' : 'rgba(63, 67, 82, 0.32)',
-                'hillshade-highlight-color': dark ? 'rgba(103, 232, 219, 0.24)' : 'rgba(255, 255, 255, 0.58)',
-                'hillshade-accent-color': dark ? 'rgba(167, 139, 250, 0.26)' : 'rgba(124, 58, 237, 0.15)',
-            },
-        }, beforeId);
+        if (!routeMap.getLayer(ROUTE_TERRAIN_HILLSHADE_LAYER_ID)) {
+            const dark = getTheme() === 'dark';
+            const beforeId = typeof BUILDINGS_LAYER_ID !== 'undefined' && routeMap.getLayer(BUILDINGS_LAYER_ID)
+                ? BUILDINGS_LAYER_ID
+                : (typeof ROUTE_GLOW_LAYER_ID !== 'undefined' && routeMap.getLayer(ROUTE_GLOW_LAYER_ID)
+                    ? ROUTE_GLOW_LAYER_ID
+                    : (typeof findFirstLabelLayerId === 'function' ? findFirstLabelLayerId() : undefined));
+
+            routeMap.addLayer({
+                id: ROUTE_TERRAIN_HILLSHADE_LAYER_ID,
+                type: 'hillshade',
+                source: ROUTE_TERRAIN_SOURCE_ID,
+                layout: { visibility: use3d ? 'visible' : 'none' },
+                paint: {
+                    'hillshade-illumination-direction': 318,
+                    'hillshade-exaggeration': dark ? 0.38 : 0.28,
+                    'hillshade-shadow-color': dark ? 'rgba(4, 9, 18, 0.78)' : 'rgba(58, 61, 82, 0.3)',
+                    'hillshade-highlight-color': dark ? 'rgba(113, 235, 240, 0.27)' : 'rgba(255, 255, 255, 0.62)',
+                    'hillshade-accent-color': dark ? 'rgba(157, 123, 255, 0.3)' : 'rgba(112, 64, 223, 0.16)',
+                },
+            }, beforeId);
+        }
+        return true;
+    } catch (error) {
+        routeTerrainUnavailable = true;
+        console.warn('[Smart Route Planner] Terrain enhancement is unavailable:', error);
+        return false;
+    }
+}
+
+function syncRouteMapAtmosphere(use3d) {
+    if (typeof routeMap === 'undefined' || !routeMap) return;
+    const dark = getTheme() === 'dark';
+
+    if (typeof routeMap.setSky === 'function') {
+        try {
+            routeMap.setSky(use3d ? {
+                'sky-color': dark ? '#263657' : '#b9d8ee',
+                'horizon-color': dark ? '#554b79' : '#e9e2f7',
+                'fog-color': dark ? '#111827' : '#f4f1fa',
+                'sky-horizon-blend': 0.44,
+                'horizon-fog-blend': 0.7,
+                'fog-ground-blend': 0.63,
+                'atmosphere-blend': 0.84,
+            } : null);
+        } catch (error) {
+            console.warn('[Smart Route Planner] Sky atmosphere is unavailable:', error);
+        }
+    }
+
+    if (typeof routeMap.setLight === 'function') {
+        try {
+            routeMap.setLight({
+                anchor: 'viewport',
+                color: dark ? '#ddd4ff' : '#fff4d9',
+                intensity: use3d ? 0.54 : 0.34,
+                position: [1.2, 210, 36],
+            });
+        } catch (error) {
+            console.warn('[Smart Route Planner] 3D light is unavailable:', error);
+        }
     }
 }
 
@@ -169,7 +231,7 @@ function syncRouteMapDepth() {
     if (hasTerrain && typeof routeMap.setTerrain === 'function') {
         try {
             routeMap.setTerrain(use3d
-                ? { source: ROUTE_TERRAIN_SOURCE_ID, exaggeration: 1.16 }
+                ? { source: ROUTE_TERRAIN_SOURCE_ID, exaggeration: 1.22 }
                 : null);
         } catch (e) {
             // Fallback: если конкретная версия MapLibre не принимает null,
@@ -191,6 +253,8 @@ function syncRouteMapDepth() {
             use3d ? 'visible' : 'none'
         );
     }
+
+    syncRouteMapAtmosphere(use3d);
 }
 
 // app.js загружен раньше ui.js, поэтому мы аккуратно расширяем уже существующие
@@ -201,14 +265,22 @@ if (typeof restoreMapLayers === 'function' && typeof applyMapMode === 'function'
 
     restoreMapLayers = function () {
         restoreMapLayersBase();
-        ensureRouteTerrainLayers();
-        syncRouteMapDepth();
+        try {
+            ensureRouteTerrainLayers();
+            syncRouteMapDepth();
+        } catch (error) {
+            console.warn('[Smart Route Planner] Optional 3D depth could not be restored:', error);
+        }
     };
 
     applyMapMode = function (animate = true) {
         applyMapModeBase(animate);
-        ensureRouteTerrainLayers();
-        syncRouteMapDepth();
+        try {
+            ensureRouteTerrainLayers();
+            syncRouteMapDepth();
+        } catch (error) {
+            console.warn('[Smart Route Planner] Optional 3D depth could not be toggled:', error);
+        }
     };
 }
 
@@ -248,86 +320,10 @@ function parseRouteJson(raw) {
 }
 
 function renderMapFallback(coords, labels, routeGeometry) {
-    if (typeof maplibregl === 'undefined') {
-        throw new Error('MapLibre is not loaded');
+    if (typeof renderStaticRouteMap === 'function') {
+        return renderStaticRouteMap(coords, labels, routeGeometry);
     }
-
-    try {
-        if (typeof routeMap !== 'undefined' && routeMap && typeof routeMap.remove === 'function') {
-            routeMap.remove();
-        }
-    } catch (ignored) {
-        // A partially-created WebGL map may fail during remove(); rebuilding
-        // the container is enough for the fallback instance.
-    }
-
-    routeMap = null;
-    mapContainer.innerHTML = '';
-    hide(mapPlaceholder);
-    show(mapContainer);
-    show(mapModeControl);
-
-    const first = coords[0] || { lon: 14, lat: 48 };
-    routeMap = new maplibregl.Map({
-        container: 'map',
-        style: MAP_STYLES[currentMapTheme()],
-        center: [Number(first.lon), Number(first.lat)],
-        zoom: 5,
-        pitch: currentMapMode === '3d' ? 48 : 0,
-        bearing: currentMapMode === '3d' ? -15 : 0,
-        attributionControl: false,
-        canvasContextAttributes: { antialias: true },
-    });
-
-    routeMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
-    routeMap.addControl(new maplibregl.AttributionControl({
-        compact: true,
-        customAttribution: 'OpenFreeMap · OpenStreetMap',
-    }), 'bottom-right');
-
-    routeMap.on('load', () => {
-        try {
-            routeMap.addSource('route-fallback-geometry', {
-                type: 'geojson',
-                data: routeGeoJson(routeGeometry),
-            });
-            routeMap.addLayer({
-                id: 'route-fallback-glow',
-                type: 'line',
-                source: 'route-fallback-geometry',
-                paint: {
-                    'line-color': '#43e3d4',
-                    'line-width': 10,
-                    'line-opacity': 0.2,
-                    'line-blur': 4,
-                },
-            });
-            routeMap.addLayer({
-                id: 'route-fallback-line',
-                type: 'line',
-                source: 'route-fallback-geometry',
-                layout: { 'line-cap': 'round', 'line-join': 'round' },
-                paint: {
-                    'line-color': '#61c7f2',
-                    'line-width': 5,
-                    'line-opacity': 0.98,
-                },
-            });
-
-            renderRouteMarkers(coords, labels);
-            const bounds = new maplibregl.LngLatBounds();
-            coords.forEach((coord) => bounds.extend([Number(coord.lon), Number(coord.lat)]));
-            routeMap.fitBounds(bounds, {
-                padding: { top: 72, right: 64, bottom: 72, left: 64 },
-                maxZoom: 14,
-                duration: 900,
-            });
-        } catch (error) {
-            console.error('[Smart Route Planner] Minimal map fallback failed:', error);
-        }
-    });
-
-    return routeMap;
+    throw new Error('Static route fallback is unavailable');
 }
 
 if (typeof renderMap === 'function') {

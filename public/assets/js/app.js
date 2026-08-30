@@ -31,6 +31,12 @@ const costFuelPrice = document.getElementById('cost-fuel-price');
 const costFuelConsumption = document.getElementById('cost-fuel-consumption');
 const costTicketPrice = document.getElementById('cost-ticket-price');
 const mapModeControl = document.getElementById('map-mode-control');
+const mapPanel = document.querySelector('.map-panel');
+const routePanel = document.querySelector('.panel');
+const mapSceneStatus = document.getElementById('map-scene-status');
+const mapSceneStatusText = document.getElementById('map-scene-status-text');
+const mapTripSummary = document.getElementById('map-trip-summary');
+const routePointCount = document.getElementById('route-point-count');
 
 let routeMap = null;
 let routeMarkers = [];
@@ -39,11 +45,17 @@ let poiVisible = false;
 let poiFetchedForRoute = null; // хранит JSON.stringify(coords) маршрута, для которого уже запрашивали POI
 let lastRouteData = null;
 let lastMapRender = null;
+let routeAnimationFrame = null;
+let routeSceneToken = 0;
+let routeScenePhase = 'idle';
+let mapStyleFallbackTimer = null;
 
 const MAP_MODE_STORAGE_KEY = 'srp_map_mode';
 const ROUTE_SOURCE_ID = 'route-geometry';
+const ROUTE_CASING_LAYER_ID = 'route-casing';
 const ROUTE_GLOW_LAYER_ID = 'route-glow';
 const ROUTE_LINE_LAYER_ID = 'route-line';
+const ROUTE_HIGHLIGHT_LAYER_ID = 'route-highlight';
 const BUILDINGS_SOURCE_ID = 'openfreemap-buildings';
 const BUILDINGS_LAYER_ID = 'route-map-3d-buildings';
 
@@ -67,13 +79,117 @@ function currentMapTheme() {
     return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
 
+function prefersReducedMotion() {
+    return typeof window.matchMedia === 'function'
+        && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+function supportsWebGlMap() {
+    if (typeof maplibregl === 'undefined' || typeof maplibregl.Map !== 'function') {
+        return false;
+    }
+
+    if (typeof maplibregl.supported === 'function') {
+        try {
+            return maplibregl.supported();
+        } catch (e) {
+            // Some privacy-focused browsers throw during the capability probe.
+        }
+    }
+
+    try {
+        const canvas = document.createElement('canvas');
+        return Boolean(canvas.getContext('webgl2', {
+            failIfMajorPerformanceCaveat: false,
+            antialias: true,
+        }) || canvas.getContext('webgl'));
+    } catch (e) {
+        return false;
+    }
+}
+
+function setRouteScenePhase(phase) {
+    routeScenePhase = phase;
+
+    if (!mapSceneStatus || !mapSceneStatusText) {
+        return;
+    }
+
+    const phaseKeys = {
+        calculating: 'mapStatusCalculating',
+        framing: 'mapStatusFraming',
+        drawing: 'mapStatusDrawing',
+        ready: 'mapStatusReady',
+    };
+    const key = phaseKeys[phase];
+
+    if (!key) {
+        hide(mapSceneStatus);
+        return;
+    }
+
+    mapSceneStatusText.textContent = t(key);
+    show(mapSceneStatus);
+}
+
+function populateMapSummary(data) {
+    if (!data || !mapTripSummary) return;
+
+    document.getElementById('map-summary-distance').textContent = data.distance_km + ' км';
+    document.getElementById('map-summary-time').textContent = data.duration.label;
+
+    const modeLabels = t('transportModes');
+    document.getElementById('map-summary-mode').textContent = modeLabels[data.transport.mode]
+        || data.transport.mode_ru
+        || data.transport.mode;
+    document.getElementById('map-summary-source').textContent = data.routing_source === 'osrm_road'
+        ? t('mapSummaryRoadSource')
+        : t('mapSummaryFallbackSource');
+}
+
+function updateRoutePointCount() {
+    if (!routePointCount || !pointsInput) return;
+    const count = pointsInput.value.split(';').filter((point) => point.trim() !== '').length;
+    routePointCount.textContent = t('routePointCount')(count);
+}
+
+window.refreshRouteUiLanguage = function () {
+    updateRoutePointCount();
+    updateMapModeButtons();
+    const timelineItems = document.querySelectorAll('#points-list li');
+    timelineItems.forEach((item, index) => {
+        const role = item.querySelector('.point-role');
+        if (!role) return;
+        role.textContent = index === 0
+            ? t('timelineStart')
+            : (index === timelineItems.length - 1 ? t('timelineFinish') : t('timelineStop'));
+    });
+    if (routeScenePhase !== 'idle') {
+        setRouteScenePhase(routeScenePhase);
+    }
+    if (lastRouteData) {
+        populateMapSummary(lastRouteData);
+    }
+};
+
 // Вызывается из ui.js при переключении светлой/тёмной темы, чтобы перекрасить
 // карту вслед за интерфейсом. После смены стиля восстанавливаются 3D-здания
 // и линия уже рассчитанного маршрута.
 window.setMapTileTheme = function (theme) {
-    if (!routeMap) return;
     const normalized = theme === 'light' ? 'light' : 'dark';
-    routeMap.setStyle(MAP_STYLES[normalized]);
+
+    if (routeMap) {
+        try {
+            routeMap.setStyle(MAP_STYLES[normalized]);
+        } catch (error) {
+            console.warn('[Smart Route Planner] Could not switch map style:', error);
+        }
+        return;
+    }
+
+    if (lastMapRender && mapPanel && mapPanel.classList.contains('map-static')) {
+        renderStaticRouteMap(lastMapRender.coords, lastMapRender.labels, lastMapRender.routeGeometry);
+    }
 };
 
 /**
@@ -94,6 +210,8 @@ form.addEventListener('submit', (event) => {
     event.preventDefault();
     calculateRoute(form.elements['points'].value);
 });
+
+pointsInput.addEventListener('input', updateRoutePointCount);
 
 shareButton.addEventListener('click', () => {
     const points = form.elements['points'].value;
@@ -161,11 +279,23 @@ async function calculateRoute(points) {
 function setLoading(isLoading) {
     submitButton.disabled = isLoading;
     submitButton.textContent = isLoading ? t('submitLoading') : t('submitIdle');
+    submitButton.setAttribute('aria-busy', isLoading ? 'true' : 'false');
+    routePanel?.classList.toggle('is-calculating', isLoading);
+
+    if (isLoading) {
+        hide(mapTripSummary);
+        setRouteScenePhase('calculating');
+    } else if (routeScenePhase === 'calculating') {
+        setRouteScenePhase('idle');
+    }
 }
 
 function showError(message) {
     errorBanner.textContent = '⚠️ ' + message;
     show(errorBanner);
+    if (routeScenePhase === 'calculating') {
+        setRouteScenePhase('idle');
+    }
 }
 
 function showShareToast(message) {
@@ -175,7 +305,13 @@ function showShareToast(message) {
 }
 
 function renderResult(data) {
+    lastRouteData = data;
+    populateMapSummary(data);
     show(resultSection);
+    resultSection.classList.remove('result-entering');
+    // Restart the entrance choreography when a different route is calculated.
+    void resultSection.offsetWidth;
+    resultSection.classList.add('result-entering');
 
     document.getElementById('stat-stops').textContent = data.stops;
     document.getElementById('stat-distance').textContent = data.distance_km + ' км';
@@ -211,8 +347,12 @@ function renderResult(data) {
     data.points.forEach((p, i) => {
         const li = document.createElement('li');
         li.dataset.pointIndex = String(i);
+        const pointRole = i === 0
+            ? t('timelineStart')
+            : (i === data.points.length - 1 ? t('timelineFinish') : t('timelineStop'));
         li.innerHTML = '<span class="point-index">' + (i + 1) + '</span>'
-            + '<span class="point-label">' + escapeHtml(p) + '</span>'
+            + '<span class="point-copy"><span class="point-label">' + escapeHtml(p) + '</span>'
+            + '<small class="point-role">' + escapeHtml(pointRole) + '</small></span>'
             + '<span class="point-weather" data-weather-slot="' + i + '"></span>';
         list.appendChild(li);
     });
@@ -229,7 +369,6 @@ function renderResult(data) {
 
     // Сбрасываем состояние доп.фич (погода/AI-совет/POI) для нового маршрута —
     // иначе на экране могла бы остаться карточка от предыдущего расчёта.
-    lastRouteData = data;
     resetPoiState();
     resetExplainState();
     resetAbFeedbackState(data.transport.model);
@@ -450,54 +589,214 @@ function findFirstLabelLayerId() {
 function add3dBuildingsLayer() {
     if (!routeMap || routeMap.getLayer(BUILDINGS_LAYER_ID)) return;
 
-    if (!routeMap.getSource(BUILDINGS_SOURCE_ID)) {
-        routeMap.addSource(BUILDINGS_SOURCE_ID, {
-            type: 'vector',
-            url: 'https://tiles.openfreemap.org/planet',
-        });
-    }
+    try {
+        if (!routeMap.getSource(BUILDINGS_SOURCE_ID)) {
+            routeMap.addSource(BUILDINGS_SOURCE_ID, {
+                type: 'vector',
+                url: 'https://tiles.openfreemap.org/planet',
+            });
+        }
 
-    const dark = currentMapTheme() === 'dark';
-    routeMap.addLayer({
-        id: BUILDINGS_LAYER_ID,
-        source: BUILDINGS_SOURCE_ID,
-        'source-layer': 'building',
-        type: 'fill-extrusion',
-        minzoom: 13.5,
-        filter: ['!=', ['get', 'hide_3d'], true],
-        layout: {
-            visibility: currentMapMode === '3d' ? 'visible' : 'none',
-        },
-        paint: {
-            'fill-extrusion-color': [
-                'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0],
-                0, dark ? '#293340' : '#d7dbe5',
-                80, dark ? '#59677b' : '#aeb8cb',
-                240, dark ? '#b59df8' : '#8870c9',
-            ],
-            'fill-extrusion-height': [
-                'interpolate', ['linear'], ['zoom'],
-                13.5, 0,
-                15, ['coalesce', ['get', 'render_height'], 8],
-            ],
-            'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
-            'fill-extrusion-opacity': dark ? 0.78 : 0.7,
-            'fill-extrusion-vertical-gradient': true,
-        },
-    }, findFirstLabelLayerId());
+        const dark = currentMapTheme() === 'dark';
+        routeMap.addLayer({
+            id: BUILDINGS_LAYER_ID,
+            source: BUILDINGS_SOURCE_ID,
+            'source-layer': 'building',
+            type: 'fill-extrusion',
+            minzoom: 13.2,
+            filter: ['!=', ['get', 'hide_3d'], true],
+            layout: {
+                visibility: currentMapMode === '3d' ? 'visible' : 'none',
+            },
+            paint: {
+                'fill-extrusion-color': [
+                    'interpolate', ['linear'], ['coalesce', ['get', 'render_height'], 0],
+                    0, dark ? '#252d40' : '#d9dbea',
+                    70, dark ? '#485476' : '#b9b6d8',
+                    180, dark ? '#7565ae' : '#9a8cca',
+                    320, dark ? '#67cbd3' : '#5da8b0',
+                ],
+                'fill-extrusion-height': [
+                    'interpolate', ['linear'], ['zoom'],
+                    13.2, 0,
+                    15, ['coalesce', ['get', 'render_height'], 8],
+                ],
+                'fill-extrusion-base': ['coalesce', ['get', 'render_min_height'], 0],
+                'fill-extrusion-opacity': dark ? 0.82 : 0.72,
+                'fill-extrusion-vertical-gradient': true,
+            },
+        }, findFirstLabelLayerId());
+    } catch (error) {
+        // Buildings are an optional 3D enhancement. Route layers must still load.
+        console.warn('[Smart Route Planner] 3D buildings are unavailable:', error);
+    }
 }
 
-function routeGeoJson(routeGeometry) {
+function routeCoordinates(routeGeometry) {
+    if (!Array.isArray(routeGeometry)) return [];
+
+    return routeGeometry.map((point) => Array.isArray(point)
+        ? [Number(point[1]), Number(point[0])]
+        : [Number(point.lon), Number(point.lat)])
+        .filter((point) => Number.isFinite(point[0]) && Number.isFinite(point[1]));
+}
+
+function routeGeoJsonFromCoordinates(coordinates) {
+    const safeCoordinates = coordinates.length === 1
+        ? [coordinates[0], coordinates[0]]
+        : coordinates;
+
     return {
         type: 'Feature',
         properties: {},
         geometry: {
             type: 'LineString',
-            coordinates: routeGeometry.map((point) => Array.isArray(point)
-                ? [Number(point[1]), Number(point[0])]
-                : [Number(point.lon), Number(point.lat)]),
+            coordinates: safeCoordinates,
         },
     };
+}
+
+function routeGeoJson(routeGeometry) {
+    return routeGeoJsonFromCoordinates(routeCoordinates(routeGeometry));
+}
+
+function routePoint(point) {
+    if (Array.isArray(point)) {
+        return { lat: Number(point[0]), lon: Number(point[1]) };
+    }
+    return { lat: Number(point.lat), lon: Number(point.lon) };
+}
+
+function renderStaticRouteMap(coords, labels, routeGeometry) {
+    if (routeAnimationFrame !== null) {
+        cancelAnimationFrame(routeAnimationFrame);
+        routeAnimationFrame = null;
+    }
+    clearTimeout(mapStyleFallbackTimer);
+
+    try {
+        if (routeMap && typeof routeMap.remove === 'function') {
+            routeMap.remove();
+        }
+    } catch (ignored) {
+        // Replacing the container is enough when a partial WebGL instance cannot be removed.
+    }
+    routeMap = null;
+    routeMarkers = [];
+
+    const sourcePoints = (Array.isArray(routeGeometry) && routeGeometry.length > 1
+        ? routeGeometry
+        : coords).map(routePoint)
+        .filter((point) => Number.isFinite(point.lat) && Number.isFinite(point.lon));
+
+    if (sourcePoints.length < 2) {
+        mapContainer.innerHTML = '<div class="map-webgl-error">' + escapeHtml(t('mapWebglError')) + '</div>';
+        show(mapContainer);
+        hide(mapPlaceholder);
+        hide(mapModeControl);
+        return null;
+    }
+
+    const maxSvgPoints = 520;
+    const sampleEvery = Math.max(1, Math.ceil(sourcePoints.length / maxSvgPoints));
+    const sampled = sourcePoints.filter((point, index) => index % sampleEvery === 0);
+    const finalPoint = sourcePoints[sourcePoints.length - 1];
+    if (sampled[sampled.length - 1] !== finalPoint) sampled.push(finalPoint);
+
+    let minLon = Infinity;
+    let maxLon = -Infinity;
+    let minLat = Infinity;
+    let maxLat = -Infinity;
+    sourcePoints.forEach((point) => {
+        minLon = Math.min(minLon, point.lon);
+        maxLon = Math.max(maxLon, point.lon);
+        minLat = Math.min(minLat, point.lat);
+        maxLat = Math.max(maxLat, point.lat);
+    });
+
+    const lonSpan = Math.max(maxLon - minLon, 0.02);
+    const latSpan = Math.max(maxLat - minLat, 0.02);
+    const width = 1000;
+    const height = 620;
+    const padding = 84;
+    const project = (point) => ({
+        x: padding + ((point.lon - minLon) / lonSpan) * (width - padding * 2),
+        y: height - padding - ((point.lat - minLat) / latSpan) * (height - padding * 2),
+    });
+
+    const path = sampled.map((point, index) => {
+        const projected = project(point);
+        return (index === 0 ? 'M' : 'L') + projected.x.toFixed(1) + ' ' + projected.y.toFixed(1);
+    }).join(' ');
+
+    const markerSvg = coords.map((coord, index) => {
+        const point = project(routePoint(coord));
+        const markerClass = index === 0 ? ' static-marker-start'
+            : (index === coords.length - 1 ? ' static-marker-end' : '');
+        const shortLabel = index === 0 ? 'A' : (index === coords.length - 1 ? 'B' : String(index + 1));
+        return '<g class="static-route-marker' + markerClass + '" transform="translate('
+            + point.x.toFixed(1) + ' ' + point.y.toFixed(1) + ')">'
+            + '<circle r="18"></circle><circle class="static-route-marker-ring" r="25"></circle>'
+            + '<text text-anchor="middle" dominant-baseline="central">' + shortLabel + '</text></g>';
+    }).join('');
+
+    const endpointLabels = [0, coords.length - 1]
+        .filter((index, position, values) => values.indexOf(index) === position)
+        .map((index) => {
+            const point = project(routePoint(coords[index]));
+            const label = escapeHtml(labels[index] || '');
+            const anchor = index === 0 ? 'start' : 'end';
+            const offset = index === 0 ? 30 : -30;
+            return '<text class="static-route-label" x="' + (point.x + offset).toFixed(1) + '" y="'
+                + (point.y - 27).toFixed(1) + '" text-anchor="' + anchor + '">' + label + '</text>';
+        }).join('');
+
+    const dark = currentMapTheme() === 'dark';
+    const backgroundStart = dark ? '#0d1320' : '#e9e8f2';
+    const backgroundEnd = dark ? '#171b30' : '#d9e4eb';
+    const gridStroke = dark ? 'rgba(146,164,194,.12)' : 'rgba(70,64,105,.13)';
+
+    mapContainer.innerHTML = '<div class="static-route-map">'
+        + '<svg viewBox="0 0 1000 620" role="img" aria-label="' + escapeHtml(t('mapStaticMode')) + '">'
+        + '<defs><linearGradient id="static-map-bg" x1="0" y1="0" x2="1" y2="1">'
+        + '<stop offset="0" stop-color="' + backgroundStart + '"></stop>'
+        + '<stop offset="1" stop-color="' + backgroundEnd + '"></stop></linearGradient>'
+        + '<linearGradient id="static-route-line" x1="0" y1="0" x2="1" y2="0">'
+        + '<stop offset="0" stop-color="#9d7bff"></stop><stop offset=".56" stop-color="#48dbe3"></stop>'
+        + '<stop offset="1" stop-color="#ffb547"></stop></linearGradient>'
+        + '<filter id="static-route-glow"><feGaussianBlur stdDeviation="9" result="blur"></feGaussianBlur>'
+        + '<feMerge><feMergeNode in="blur"></feMergeNode><feMergeNode in="SourceGraphic"></feMergeNode></feMerge></filter>'
+        + '<pattern id="static-grid" width="72" height="72" patternUnits="userSpaceOnUse">'
+        + '<path d="M72 0H0V72" fill="none" stroke="' + gridStroke + '" stroke-width="1"></path></pattern></defs>'
+        + '<rect width="1000" height="620" fill="url(#static-map-bg)"></rect>'
+        + '<rect width="1000" height="620" fill="url(#static-grid)"></rect>'
+        + '<path d="M-40 420C170 320 310 500 510 374S810 250 1060 334V660H-40Z" fill="rgba(77,91,135,.11)"></path>'
+        + '<path class="static-route-glow" d="' + path + '"></path>'
+        + '<path class="static-route-path" d="' + path + '"></path>'
+        + '<path class="static-route-highlight" d="' + path + '"></path>'
+        + markerSvg + endpointLabels + '</svg>'
+        + '<div class="static-route-note">' + escapeHtml(t('mapStaticMode')) + '</div></div>';
+
+    hide(mapPlaceholder);
+    show(mapContainer);
+    hide(mapModeControl);
+    mapPanel?.classList.remove('map-preview', 'map-framing', 'map-drawing');
+    mapPanel?.classList.add('map-route-active', 'map-static', 'map-ready');
+    show(mapTripSummary);
+    setRouteScenePhase('ready');
+    window.setTimeout(() => {
+        if (routeScenePhase === 'ready') setRouteScenePhase('idle');
+    }, prefersReducedMotion() ? 0 : 900);
+    return null;
+}
+
+function clearRouteLayers() {
+    if (!routeMap || !routeMap.isStyleLoaded()) return;
+    [ROUTE_HIGHLIGHT_LAYER_ID, ROUTE_LINE_LAYER_ID, ROUTE_GLOW_LAYER_ID, ROUTE_CASING_LAYER_ID]
+        .forEach((layerId) => {
+            if (routeMap.getLayer(layerId)) routeMap.removeLayer(layerId);
+        });
+    if (routeMap.getSource(ROUTE_SOURCE_ID)) routeMap.removeSource(ROUTE_SOURCE_ID);
 }
 
 function addRouteLayers() {
@@ -511,6 +810,21 @@ function addRouteLayers() {
 
     const beforeId = findFirstLabelLayerId();
     routeMap.addLayer({
+        id: ROUTE_CASING_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+        },
+        paint: {
+            'line-color': currentMapTheme() === 'dark' ? '#080d16' : '#ffffff',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 7, 10, 12, 16, 18],
+            'line-opacity': 0.9,
+        },
+    }, beforeId);
+
+    routeMap.addLayer({
         id: ROUTE_GLOW_LAYER_ID,
         type: 'line',
         source: ROUTE_SOURCE_ID,
@@ -519,10 +833,10 @@ function addRouteLayers() {
             'line-join': 'round',
         },
         paint: {
-            'line-color': '#43e3d4',
-            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 8, 10, 13, 16, 20],
-            'line-opacity': 0.24,
-            'line-blur': 5,
+            'line-color': '#48dbe3',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 11, 10, 18, 16, 28],
+            'line-opacity': 0.26,
+            'line-blur': 7,
         },
     }, beforeId);
 
@@ -539,20 +853,48 @@ function addRouteLayers() {
             'line-opacity': 0.98,
             'line-gradient': [
                 'interpolate', ['linear'], ['line-progress'],
-                0, '#4fe4d7',
-                0.48, '#61c7f2',
-                0.72, '#ffc85b',
-                1, '#ff7b8a',
+                0, '#9d7bff',
+                0.48, '#48dbe3',
+                0.78, '#73e4e9',
+                1, '#ffb547',
             ],
+        },
+    }, beforeId);
+
+    routeMap.addLayer({
+        id: ROUTE_HIGHLIGHT_LAYER_ID,
+        type: 'line',
+        source: ROUTE_SOURCE_ID,
+        layout: {
+            'line-cap': 'round',
+            'line-join': 'round',
+        },
+        paint: {
+            'line-color': 'rgba(255,255,255,0.82)',
+            'line-width': ['interpolate', ['linear'], ['zoom'], 3, 0.6, 10, 1.05, 16, 1.55],
+            'line-opacity': 0.66,
+            'line-dasharray': [0.7, 2.4],
         },
     }, beforeId);
 }
 
 function restoreMapLayers() {
     if (!routeMap || !routeMap.isStyleLoaded()) return;
-    add3dBuildingsLayer();
-    addRouteLayers();
-    applyMapMode(false);
+    try {
+        add3dBuildingsLayer();
+    } catch (error) {
+        console.warn('[Smart Route Planner] Could not restore 3D buildings:', error);
+    }
+    try {
+        addRouteLayers();
+    } catch (error) {
+        console.warn('[Smart Route Planner] Could not restore route layers:', error);
+    }
+    try {
+        applyMapMode(false);
+    } catch (error) {
+        console.warn('[Smart Route Planner] Could not restore map mode:', error);
+    }
 }
 
 function updateMapModeButtons() {
@@ -567,20 +909,29 @@ function applyMapMode(animate = true) {
     updateMapModeButtons();
     if (!routeMap) return;
 
-    if (routeMap.getLayer(BUILDINGS_LAYER_ID)) {
-        routeMap.setLayoutProperty(
-            BUILDINGS_LAYER_ID,
-            'visibility',
-            currentMapMode === '3d' ? 'visible' : 'none'
-        );
+    try {
+        if (routeMap.getLayer(BUILDINGS_LAYER_ID)) {
+            routeMap.setLayoutProperty(
+                BUILDINGS_LAYER_ID,
+                'visibility',
+                currentMapMode === '3d' ? 'visible' : 'none'
+            );
+        }
+    } catch (error) {
+        console.warn('[Smart Route Planner] Could not toggle 3D buildings:', error);
     }
 
-    routeMap.easeTo({
-        pitch: currentMapMode === '3d' ? 52 : 0,
-        bearing: currentMapMode === '3d' ? -18 : 0,
-        duration: animate ? 750 : 0,
-        essential: true,
-    });
+    const motionAllowed = animate && !prefersReducedMotion();
+    try {
+        routeMap.easeTo({
+            pitch: currentMapMode === '3d' ? 58 : 0,
+            bearing: currentMapMode === '3d' ? -22 : 0,
+            duration: motionAllowed ? 850 : 0,
+            essential: false,
+        });
+    } catch (error) {
+        console.warn('[Smart Route Planner] Could not animate map mode:', error);
+    }
 }
 
 function setMapMode(mode) {
@@ -599,22 +950,29 @@ document.querySelectorAll('[data-map-mode]').forEach((button) => {
 updateMapModeButtons();
 
 function createRouteMap() {
-    if (typeof maplibregl === 'undefined' || !maplibregl.supported()) {
+    if (!supportsWebGlMap()) {
         hide(mapModeControl);
-        mapContainer.innerHTML = '<div class="map-webgl-error">' + escapeHtml(t('mapWebglError')) + '</div>';
         return null;
     }
 
-    routeMap = new maplibregl.Map({
-        container: 'map',
-        style: MAP_STYLES[currentMapTheme()],
-        center: [14, 48],
-        zoom: 4,
-        pitch: currentMapMode === '3d' ? 52 : 0,
-        bearing: currentMapMode === '3d' ? -18 : 0,
-        attributionControl: false,
-        canvasContextAttributes: { antialias: true },
-    });
+    try {
+        mapContainer.innerHTML = '';
+        routeMap = new maplibregl.Map({
+            container: 'map',
+            style: MAP_STYLES[currentMapTheme()],
+            center: [13.5, 47.2],
+            zoom: 3.6,
+            pitch: currentMapMode === '3d' ? 48 : 0,
+            bearing: currentMapMode === '3d' ? -18 : 0,
+            maxPitch: 70,
+            attributionControl: false,
+            canvasContextAttributes: { antialias: true },
+        });
+    } catch (error) {
+        console.warn('[Smart Route Planner] WebGL map creation failed:', error);
+        routeMap = null;
+        return null;
+    }
 
     routeMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
     routeMap.addControl(new maplibregl.AttributionControl({
@@ -622,15 +980,34 @@ function createRouteMap() {
         customAttribution: 'OpenFreeMap · OpenMapTiles · OpenStreetMap',
     }), 'bottom-right');
 
-    routeMap.on('style.load', restoreMapLayers);
+    routeMap.on('style.load', () => {
+        clearTimeout(mapStyleFallbackTimer);
+        restoreMapLayers();
+    });
     routeMap.on('error', (event) => {
         if (event && event.error) {
-            console.warn('MapLibre:', event.error.message || event.error);
+            console.warn('[Smart Route Planner] MapLibre:', event.error.message || event.error);
         }
     });
 
     return routeMap;
 }
+
+function initRouteMapPreview() {
+    updateRoutePointCount();
+    if (!supportsWebGlMap()) return;
+
+    show(mapContainer);
+    show(mapModeControl);
+    mapPanel?.classList.add('map-preview');
+
+    if (!routeMap) createRouteMap();
+    if (routeMap) {
+        window.requestAnimationFrame(() => routeMap?.resize());
+    }
+}
+
+document.addEventListener('DOMContentLoaded', initRouteMapPreview);
 
 function renderRouteMarkers(coords, labels) {
     routeMarkers.forEach((marker) => marker.remove());
@@ -667,34 +1044,199 @@ function renderRouteMarkers(coords, labels) {
     });
 }
 
+function sampledRouteCoordinates(coordinates, maxPoints = 720) {
+    if (coordinates.length <= maxPoints) return coordinates;
+    const step = Math.ceil(coordinates.length / maxPoints);
+    const sampled = coordinates.filter((point, index) => index % step === 0);
+    const finalPoint = coordinates[coordinates.length - 1];
+    if (sampled[sampled.length - 1] !== finalPoint) sampled.push(finalPoint);
+    return sampled;
+}
+
+function animateRouteLine(routeGeometry, token, onComplete) {
+    if (!routeMap || token !== routeSceneToken) return;
+    const source = routeMap.getSource(ROUTE_SOURCE_ID);
+    const fullCoordinates = routeCoordinates(routeGeometry);
+    if (!source || fullCoordinates.length < 2 || typeof source.setData !== 'function') {
+        onComplete();
+        return;
+    }
+
+    if (prefersReducedMotion()) {
+        source.setData(routeGeoJsonFromCoordinates(fullCoordinates));
+        onComplete();
+        return;
+    }
+
+    const coordinates = sampledRouteCoordinates(fullCoordinates);
+    const duration = Math.min(2200, 1250 + coordinates.length * 1.35);
+    const startedAt = performance.now();
+    let lastPaintAt = 0;
+
+    const drawFrame = (now) => {
+        if (!routeMap || token !== routeSceneToken) return;
+
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const eased = 1 - Math.pow(1 - progress, 3);
+        if (progress === 1 || now - lastPaintAt >= 30) {
+            lastPaintAt = now;
+            const scaledIndex = eased * (coordinates.length - 1);
+            const wholeIndex = Math.floor(scaledIndex);
+            const partial = coordinates.slice(0, wholeIndex + 1);
+            const fraction = scaledIndex - wholeIndex;
+
+            if (wholeIndex < coordinates.length - 1) {
+                const current = coordinates[wholeIndex];
+                const next = coordinates[wholeIndex + 1];
+                partial.push([
+                    current[0] + (next[0] - current[0]) * fraction,
+                    current[1] + (next[1] - current[1]) * fraction,
+                ]);
+            }
+
+            try {
+                source.setData(routeGeoJsonFromCoordinates(partial));
+            } catch (error) {
+                console.warn('[Smart Route Planner] Route animation stopped:', error);
+                try {
+                    source.setData(routeGeoJsonFromCoordinates(fullCoordinates));
+                } catch (ignored) {
+                    // A simultaneous style change can invalidate the old source object.
+                }
+                onComplete();
+                return;
+            }
+        }
+
+        if (progress < 1) {
+            routeAnimationFrame = requestAnimationFrame(drawFrame);
+            return;
+        }
+
+        try {
+            source.setData(routeGeoJsonFromCoordinates(fullCoordinates));
+        } catch (ignored) {
+            // A theme switch can replace the style on the animation's final frame.
+        }
+        routeAnimationFrame = null;
+        onComplete();
+    };
+
+    routeAnimationFrame = requestAnimationFrame(drawFrame);
+}
+
+function finishRouteScene(token) {
+    if (token !== routeSceneToken) return;
+    mapPanel?.classList.remove('map-framing', 'map-drawing', 'map-static');
+    mapPanel?.classList.add('map-ready');
+    show(mapTripSummary);
+    setRouteScenePhase('ready');
+
+    window.setTimeout(() => {
+        if (token === routeSceneToken && routeScenePhase === 'ready') {
+            setRouteScenePhase('idle');
+        }
+    }, prefersReducedMotion() ? 0 : 900);
+}
+
+function beginRouteDrawing(coords, labels, routeGeometry, token) {
+    if (!routeMap || token !== routeSceneToken) return;
+
+    if (!routeMap.isStyleLoaded()) {
+        routeMap.once('style.load', () => beginRouteDrawing(coords, labels, routeGeometry, token));
+        return;
+    }
+
+    clearTimeout(mapStyleFallbackTimer);
+    mapPanel?.classList.remove('map-framing');
+    mapPanel?.classList.add('map-drawing');
+    setRouteScenePhase('drawing');
+
+    try {
+        clearRouteLayers();
+        addRouteLayers();
+        const source = routeMap.getSource(ROUTE_SOURCE_ID);
+        const coordinates = routeCoordinates(routeGeometry);
+        if (source && coordinates.length > 0) {
+            source.setData(routeGeoJsonFromCoordinates([coordinates[0], coordinates[0]]));
+        }
+        renderRouteMarkers(coords, labels);
+        animateRouteLine(routeGeometry, token, () => finishRouteScene(token));
+    } catch (error) {
+        console.error('[Smart Route Planner] Interactive route drawing failed:', error);
+        renderStaticRouteMap(coords, labels, routeGeometry);
+    }
+}
+
 function renderMap(coords, labels, routeGeometry) {
     hide(mapPlaceholder);
     show(mapContainer);
-    show(mapModeControl);
     lastMapRender = { coords, labels, routeGeometry };
+    const token = ++routeSceneToken;
 
-    if (!routeMap && !createRouteMap()) return;
+    if (routeAnimationFrame !== null) {
+        cancelAnimationFrame(routeAnimationFrame);
+        routeAnimationFrame = null;
+    }
+
+    mapPanel?.classList.remove('map-preview', 'map-ready', 'map-drawing', 'map-static');
+    mapPanel?.classList.add('map-route-active', 'map-framing');
+    hide(mapTripSummary);
+    setRouteScenePhase('framing');
+
+    if (!routeMap && !createRouteMap()) {
+        renderStaticRouteMap(coords, labels, routeGeometry);
+        return;
+    }
+    show(mapModeControl);
 
     routeMap.resize();
-    renderRouteMarkers(coords, labels);
-
+    routeMarkers.forEach((marker) => marker.remove());
+    routeMarkers = [];
     if (routeMap.isStyleLoaded()) {
-        if (routeMap.getLayer(ROUTE_LINE_LAYER_ID)) routeMap.removeLayer(ROUTE_LINE_LAYER_ID);
-        if (routeMap.getLayer(ROUTE_GLOW_LAYER_ID)) routeMap.removeLayer(ROUTE_GLOW_LAYER_ID);
-        if (routeMap.getSource(ROUTE_SOURCE_ID)) routeMap.removeSource(ROUTE_SOURCE_ID);
-        addRouteLayers();
+        try {
+            clearRouteLayers();
+        } catch (error) {
+            console.warn('[Smart Route Planner] Could not clear the previous route:', error);
+        }
     }
 
     const bounds = new maplibregl.LngLatBounds();
-    coords.forEach((coord) => bounds.extend([coord.lon, coord.lat]));
-    routeMap.fitBounds(bounds, {
-        padding: { top: 72, right: 64, bottom: 72, left: 64 },
-        maxZoom: 15.5,
-        pitch: currentMapMode === '3d' ? 52 : 0,
-        bearing: currentMapMode === '3d' ? -18 : 0,
-        duration: 1100,
-        essential: true,
-    });
+    coords.forEach((coord) => bounds.extend([Number(coord.lon), Number(coord.lat)]));
+    const compact = window.innerWidth < 700;
+    const cameraDuration = prefersReducedMotion() ? 0 : 1150;
+    let drawingStarted = false;
+    const startDrawing = () => {
+        if (drawingStarted || token !== routeSceneToken) return;
+        drawingStarted = true;
+        beginRouteDrawing(coords, labels, routeGeometry, token);
+    };
+
+    routeMap.once('moveend', startDrawing);
+    try {
+        routeMap.fitBounds(bounds, {
+            padding: compact
+                ? { top: 100, right: 34, bottom: 122, left: 34 }
+                : { top: 96, right: 78, bottom: 130, left: 78 },
+            maxZoom: 15.5,
+            pitch: currentMapMode === '3d' ? 58 : 0,
+            bearing: currentMapMode === '3d' ? -22 : 0,
+            duration: cameraDuration,
+            essential: false,
+        });
+    } catch (error) {
+        console.warn('[Smart Route Planner] Camera framing failed:', error);
+        startDrawing();
+    }
+
+    window.setTimeout(startDrawing, cameraDuration + 180);
+    clearTimeout(mapStyleFallbackTimer);
+    mapStyleFallbackTimer = window.setTimeout(() => {
+        if (token === routeSceneToken && routeMap && !routeMap.isStyleLoaded()) {
+            console.warn('[Smart Route Planner] Map style timed out; using the static route view.');
+            renderStaticRouteMap(coords, labels, routeGeometry);
+        }
+    }, 9000);
 }
 
 function show(el) {
@@ -838,6 +1380,7 @@ function applySuggestion(displayName) {
 
     pointsInput.value = prefix + displayName + '; ' + afterCursor.replace(/^\s*/, '');
     const newCursor = (prefix + displayName + '; ').length;
+    updateRoutePointCount();
     pointsInput.focus();
     pointsInput.setSelectionRange(newCursor, newCursor);
 
