@@ -34,6 +34,7 @@ class RouteOptimizerTest
         );
 
         $t->assertEquals('Первая точка маршрута не меняется (это старт пользователя)', 'A', $optimized[0]);
+        $t->assertEquals('Последняя точка маршрута не меняется (это финиш пользователя)', 'D', $optimized[array_key_last($optimized)]);
 
         $t->assertTrue(
             'Оптимизированный маршрут содержит все исходные точки',

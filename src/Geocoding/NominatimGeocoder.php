@@ -18,22 +18,31 @@ use App\Http\SafeHttpClient;
  */
 class NominatimGeocoder implements GeocoderInterface
 {
-    private const ENDPOINT = 'https://nominatim.openstreetmap.org/search';
+    private const PUBLIC_ENDPOINT = 'https://nominatim.openstreetmap.org/search';
     private const MIN_INTERVAL_SECONDS = 1.0;
 
     private ?FileCache $cache;
     private string $userAgent;
     private int $timeoutSeconds;
+    private string $endpoint;
     private float $lastRequestAt = 0.0;
 
     public function __construct(
         ?FileCache $cache = null,
-        string $userAgent = 'smart-route-planner (portfolio project)',
-        int $timeoutSeconds = 5
+        string $userAgent = 'smart-route-planner/2.0 (+https://github.com/ViolettaNcl/smart-route-planner)',
+        int $timeoutSeconds = 5,
+        ?string $endpoint = null,
     ) {
         $this->cache = $cache;
-        $this->userAgent = $userAgent;
+        $configuredUserAgent = getenv('NOMINATIM_USER_AGENT');
+        $this->userAgent = is_string($configuredUserAgent) && trim($configuredUserAgent) !== ''
+            ? trim($configuredUserAgent)
+            : $userAgent;
         $this->timeoutSeconds = $timeoutSeconds;
+        $configuredEndpoint = $endpoint ?? getenv('NOMINATIM_SEARCH_ENDPOINT');
+        $this->endpoint = is_string($configuredEndpoint) && trim($configuredEndpoint) !== ''
+            ? rtrim(trim($configuredEndpoint), '/')
+            : self::PUBLIC_ENDPOINT;
     }
 
     public function geocode(string $place): ?array
@@ -73,6 +82,13 @@ class NominatimGeocoder implements GeocoderInterface
      */
     public function suggest(string $query, int $limit = 5): array
     {
+        // The public Nominatim service explicitly forbids autocomplete.
+        // Suggestions are available only when the owner deliberately points
+        // the project at a self-hosted/contracted compatible endpoint.
+        if (!$this->isAutocompleteAllowed()) {
+            return [];
+        }
+
         $query = trim($query);
 
         if (mb_strlen($query) < 2) {
@@ -81,7 +97,7 @@ class NominatimGeocoder implements GeocoderInterface
 
         $this->respectRateLimit();
 
-        $url = self::ENDPOINT . '?' . http_build_query([
+        $url = $this->endpoint . '?' . http_build_query([
             'format' => 'jsonv2',
             'q' => $query,
             'limit' => max(1, min($limit, 10)),
@@ -124,7 +140,7 @@ class NominatimGeocoder implements GeocoderInterface
     {
         $this->respectRateLimit();
 
-        $url = self::ENDPOINT . '?' . http_build_query([
+        $url = $this->endpoint . '?' . http_build_query([
             'format' => 'json',
             'q' => $place,
             'limit' => 1,
@@ -158,5 +174,17 @@ class NominatimGeocoder implements GeocoderInterface
         }
 
         $this->lastRequestAt = microtime(true);
+    }
+
+    public function isAutocompleteAllowed(): bool
+    {
+        $host = parse_url($this->endpoint, PHP_URL_HOST);
+
+        return is_string($host) && strtolower($host) !== 'nominatim.openstreetmap.org';
+    }
+
+    public function providerName(): string
+    {
+        return $this->isAutocompleteAllowed() ? 'configured_nominatim' : 'public_nominatim_submit_only';
     }
 }

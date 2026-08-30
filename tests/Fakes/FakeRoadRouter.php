@@ -24,10 +24,40 @@ class FakeRoadRouter implements RoadRouterInterface
         $airDistance = $calc->totalDistanceKm($orderedCoords);
         $roadDistance = round($airDistance * 1.15, 1);
 
-        return [
+        $primary = [
+            'id' => 'route-1',
+            'rank' => 1,
             'distance_km' => $roadDistance,
             'duration_min' => round(($roadDistance / 70) * 60, 1),
             'geometry' => $orderedCoords, // для теста упрощаем geometry = точки маршрута
+            'legs' => [[
+                'index' => 0,
+                'distance_km' => $roadDistance,
+                'duration_min' => round(($roadDistance / 70) * 60, 1),
+                'summary' => 'Test road',
+                'steps' => [[
+                    'id' => 'leg-1-step-1',
+                    'distance_m' => round($roadDistance * 1000),
+                    'duration_min' => round(($roadDistance / 70) * 60, 1),
+                    'name' => 'Test road',
+                    'maneuver' => ['type' => 'depart', 'modifier' => 'straight'],
+                    'geometry' => $orderedCoords,
+                ]],
+            ]],
+        ];
+        $alternative = $primary;
+        $alternative['id'] = 'route-2';
+        $alternative['rank'] = 2;
+        $alternative['distance_km'] = round($roadDistance * 1.08, 1);
+        $alternative['duration_min'] = round($primary['duration_min'] * 1.04, 1);
+
+        return [
+            'distance_km' => $primary['distance_km'],
+            'duration_min' => $primary['duration_min'],
+            'geometry' => $primary['geometry'],
+            'legs' => $primary['legs'],
+            'options' => [$primary, $alternative],
+            'provider' => 'fake_osrm',
         ];
     }
 }

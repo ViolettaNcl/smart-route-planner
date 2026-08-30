@@ -40,10 +40,16 @@ class Logger
     /** @param array<string, mixed> $context */
     private function write(string $level, string $message, array $context): void
     {
-        $line = sprintf('[%s] %s: %s', date('Y-m-d H:i:s'), $level, $message);
-
-        if (!empty($context)) {
-            $line .= ' ' . json_encode($context, JSON_UNESCAPED_UNICODE);
+        $event = [
+            'timestamp' => gmdate('c'),
+            'level' => strtolower($level),
+            'service' => 'smart-route-planner',
+            'event' => $message,
+            'context' => $context,
+        ];
+        $line = json_encode($event, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        if (!is_string($line)) {
+            return;
         }
 
         $dir = dirname($this->path);
@@ -52,5 +58,11 @@ class Logger
         }
 
         @file_put_contents($this->path, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
+
+        // Vercel and most container platforms collect stderr. Keeping the
+        // same structured event there makes failures searchable without a
+        // writable or persistent filesystem. Context deliberately contains
+        // counts and provider names, never user-entered addresses.
+        error_log($line);
     }
 }

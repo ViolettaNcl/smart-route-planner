@@ -14,8 +14,8 @@ namespace App\Routing;
  *    разворачивая отрезки между двумя точками, и оставляет улучшение, если
  *    оно действительно сокращает суммарную длину.
  *
- * Первая точка, введённая пользователем, всегда остаётся стартом маршрута —
- * это ожидаемое поведение (человек начинает поездку оттуда, где находится).
+ * Первая и, по умолчанию, последняя точки остаются стартом и финишем.
+ * Оптимизируются промежуточные остановки — маршрут не меняет назначение.
  */
 class RouteOptimizer
 {
@@ -28,13 +28,13 @@ class RouteOptimizer
      * @param array<string, array{lat: float, lon: float}> $coords Координаты по названию точки
      * @return string[] Названия точек в оптимизированном порядке
      */
-    public function optimize(array $labels, array $coords): array
+    public function optimize(array $labels, array $coords, bool $keepLast = true): array
     {
         if (count($labels) <= 2) {
             return $labels; // Оптимизировать нечего — 0 или 1 отрезок
         }
 
-        $order = $this->nearestNeighborOrder($labels, $coords);
+        $order = $this->nearestNeighborOrder($labels, $coords, $keepLast);
 
         return $this->twoOptImprove($order, $coords);
     }
@@ -44,10 +44,11 @@ class RouteOptimizer
      * @param array<string, array{lat: float, lon: float}> $coords
      * @return string[]
      */
-    private function nearestNeighborOrder(array $labels, array $coords): array
+    private function nearestNeighborOrder(array $labels, array $coords, bool $keepLast): array
     {
         $remaining = $labels;
         $route = [array_shift($remaining)]; // старт — первая точка пользователя
+        $finish = $keepLast ? array_pop($remaining) : null;
 
         while (!empty($remaining)) {
             $current = $coords[end($route)];
@@ -65,6 +66,10 @@ class RouteOptimizer
             $route[] = $remaining[$nearestIndex];
             unset($remaining[$nearestIndex]);
             $remaining = array_values($remaining);
+        }
+
+        if ($finish !== null) {
+            $route[] = $finish;
         }
 
         return $route;
@@ -85,7 +90,7 @@ class RouteOptimizer
             $improved = false;
             $pass++;
 
-            // Первая и последняя точка (i=0) не трогаются — старт маршрута фиксирован.
+            // Первая и последняя точки не трогаются: старт и финиш фиксированы.
             for ($i = 1; $i < $n - 2; $i++) {
                 for ($k = $i + 1; $k < $n - 1; $k++) {
                     $delta = $this->reversalDelta($route, $coords, $i, $k);
