@@ -37,6 +37,8 @@ const mapSceneStatus = document.getElementById('map-scene-status');
 const mapSceneStatusText = document.getElementById('map-scene-status-text');
 const mapTripSummary = document.getElementById('map-trip-summary');
 const routePointCount = document.getElementById('route-point-count');
+const mapStyleChip = document.getElementById('map-style-chip');
+const mapStyleIndicator = document.getElementById('map-style-indicator');
 
 let routeMap = null;
 let routeMarkers = [];
@@ -71,12 +73,17 @@ let currentMapMode = (() => {
 // Они заменяют старые raster-тайлы, на которых провайдер начал показывать
 // водяной знак API KEY REQUIRED.
 const MAP_STYLES = {
-    dark: 'https://tiles.openfreemap.org/styles/dark',
-    light: 'https://tiles.openfreemap.org/styles/positron',
+    dark: 'https://tiles.openfreemap.org/styles/fiord',
+    light: 'https://tiles.openfreemap.org/styles/liberty',
 };
 
 function currentMapTheme() {
     return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+}
+
+function updateMapStyleChip(theme = currentMapTheme()) {
+    if (!mapStyleChip) return;
+    mapStyleChip.textContent = theme === 'light' ? t('mapStyleLiberty') : t('mapStyleFiord');
 }
 
 function prefersReducedMotion() {
@@ -156,6 +163,7 @@ function updateRoutePointCount() {
 window.refreshRouteUiLanguage = function () {
     updateRoutePointCount();
     updateMapModeButtons();
+    updateMapStyleChip();
     const timelineItems = document.querySelectorAll('#points-list li');
     timelineItems.forEach((item, index) => {
         const role = item.querySelector('.point-role');
@@ -177,6 +185,7 @@ window.refreshRouteUiLanguage = function () {
 // и линия уже рассчитанного маршрута.
 window.setMapTileTheme = function (theme) {
     const normalized = theme === 'light' ? 'light' : 'dark';
+    updateMapStyleChip(normalized);
 
     if (routeMap) {
         try {
@@ -694,6 +703,7 @@ function renderStaticRouteMap(coords, labels, routeGeometry) {
         show(mapContainer);
         hide(mapPlaceholder);
         hide(mapModeControl);
+        hide(mapStyleIndicator);
         return null;
     }
 
@@ -780,6 +790,7 @@ function renderStaticRouteMap(coords, labels, routeGeometry) {
     hide(mapPlaceholder);
     show(mapContainer);
     hide(mapModeControl);
+    hide(mapStyleIndicator);
     mapPanel?.classList.remove('map-preview', 'map-framing', 'map-drawing');
     mapPanel?.classList.add('map-route-active', 'map-static', 'map-ready');
     show(mapTripSummary);
@@ -952,6 +963,7 @@ updateMapModeButtons();
 function createRouteMap() {
     if (!supportsWebGlMap()) {
         hide(mapModeControl);
+        hide(mapStyleIndicator);
         return null;
     }
 
@@ -974,11 +986,18 @@ function createRouteMap() {
         return null;
     }
 
+    show(mapStyleIndicator);
     routeMap.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-left');
     routeMap.addControl(new maplibregl.AttributionControl({
         compact: true,
         customAttribution: 'OpenFreeMap · OpenMapTiles · OpenStreetMap',
     }), 'bottom-right');
+    if (typeof maplibregl.ScaleControl === 'function') {
+        routeMap.addControl(new maplibregl.ScaleControl({
+            maxWidth: 110,
+            unit: 'metric',
+        }), 'bottom-right');
+    }
 
     routeMap.on('style.load', () => {
         clearTimeout(mapStyleFallbackTimer);
@@ -995,10 +1014,15 @@ function createRouteMap() {
 
 function initRouteMapPreview() {
     updateRoutePointCount();
-    if (!supportsWebGlMap()) return;
+    updateMapStyleChip();
+    if (!supportsWebGlMap()) {
+        hide(mapStyleIndicator);
+        return;
+    }
 
     show(mapContainer);
     show(mapModeControl);
+    show(mapStyleIndicator);
     mapPanel?.classList.add('map-preview');
 
     if (!routeMap) createRouteMap();
@@ -1399,7 +1423,18 @@ function hideSuggestions() {
 
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('service-worker.js').catch(() => {
+        const upgradingExistingWorker = Boolean(navigator.serviceWorker.controller);
+        let refreshingForUpdate = false;
+
+        if (upgradingExistingWorker) {
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                if (refreshingForUpdate) return;
+                refreshingForUpdate = true;
+                window.location.reload();
+            });
+        }
+
+        navigator.serviceWorker.register('service-worker.js?v=9').catch(() => {
             // Если что-то пошло не так (например, http без TLS) — сайт всё равно
             // должен нормально работать, просто без офлайн-кэша.
         });

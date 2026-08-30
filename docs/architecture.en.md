@@ -160,11 +160,14 @@ docker-compose.yml              # Local run / simple VPS deployment
 5. `app.js` updates the result cards (including time, cost, CO2) and starts a
    MapLibre GL JS route scene: the camera frames the trip, the line is drawn
    progressively from the real road geometry, and the compact summary is then
-   revealed. `ui.js` keeps the OpenFreeMap style in sync with the UI theme;
+   revealed. `ui.js` keeps the OpenFreeMap Fiord/Liberty style in sync with the UI theme;
    2D and 3D switch without recreating the map. Extruded buildings,
    Mapterhorn terrain/hillshade, globe atmosphere, and lighting are independent
    progressive enhancements. If WebGL or the base style fails, an SVG view is
    generated from the API response coordinates without affecting route data.
+   Local shell assets carry an explicit UI version, while service-worker
+   navigation is network-first so a deployed interface cannot remain pinned
+   behind a previous PWA cache.
 
 ## Additional API Endpoints (after the main route calculation)
 

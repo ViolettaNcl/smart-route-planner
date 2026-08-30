@@ -38,7 +38,7 @@
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css">
+    <link rel="stylesheet" href="assets/css/route.css?v=9">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -170,7 +170,7 @@
                 </span>
                 <span class="map-identity-copy">
                     <strong id="map-canvas-title" data-i18n="mapCanvasTitle">Навигационная сцена</strong>
-                    <small data-i18n="mapCanvasSubtitle">OpenFreeMap · OpenStreetMap · без ключа</small>
+                    <small data-i18n="mapCanvasSubtitle">Fiord / Liberty · OpenStreetMap · без ключа</small>
                 </span>
             </div>
             <div id="map-mode-control" class="map-mode-control hidden" role="group" data-i18n-aria-label="mapModeLabel">
@@ -187,6 +187,11 @@
             <div id="map-scene-status" class="map-scene-status hidden" role="status" aria-live="polite">
                 <span class="map-scene-pulse" aria-hidden="true"></span>
                 <span id="map-scene-status-text"></span>
+            </div>
+
+            <div id="map-style-indicator" class="map-style-chip hidden" aria-hidden="true">
+                <span class="map-style-chip-dot"></span>
+                <span id="map-style-chip">FIORD · фирменный тёмный</span>
             </div>
 
             <div id="map-trip-summary" class="map-trip-summary hidden" aria-live="polite">
@@ -399,9 +404,9 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js"></script>
-<script src="assets/js/ml_boundary.js"></script>
-<script src="assets/js/app.js"></script>
-<script src="assets/js/ui.js"></script>
+<script src="assets/js/i18n.js?v=9"></script>
+<script src="assets/js/ml_boundary.js?v=9"></script>
+<script src="assets/js/app.js?v=9"></script>
+<script src="assets/js/ui.js?v=9"></script>
 </body>
 </html>

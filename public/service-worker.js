@@ -6,21 +6,22 @@
  * - интерфейс открывался мгновенно и работал в офлайне (без карты и расчёта
  *   маршрута — они требуют сети, но форма и статика доступны сразу).
  *
- * Стратегия: "cache first, then network" для статики оболочки,
+ * Стратегия: "network first" для HTML-навигации и
+ * "cache first, then network" для версионированной статики оболочки,
  * "network only" для API (/api/*) — расчёт маршрута никогда не должен
  * отдавать устаревший кэшированный ответ.
  */
 
-const CACHE_VERSION = 'srp-shell-v8';
+const CACHE_VERSION = 'srp-shell-v9';
 
 const SHELL_ASSETS = [
     './',
     './index.php',
-    './assets/css/route.css',
-    './assets/js/app.js',
-    './assets/js/ui.js',
-    './assets/js/i18n.js',
-    './assets/js/ml_boundary.js',
+    './assets/css/route.css?v=9',
+    './assets/js/app.js?v=9',
+    './assets/js/ui.js?v=9',
+    './assets/js/i18n.js?v=9',
+    './assets/js/ml_boundary.js?v=9',
     './assets/icons/logo-source.svg',
     './assets/icons/favicon.ico',
     './assets/icons/favicon-16.png',
@@ -61,6 +62,23 @@ self.addEventListener('fetch', (event) => {
     }
 
     if (event.request.method !== 'GET') {
+        return;
+    }
+
+    // HTML всегда проверяем в сети первым. Так установленное PWA не удерживает
+    // старый index.php после нового deployment; при офлайне остаётся shell.
+    if (event.request.mode === 'navigate') {
+        event.respondWith(
+            fetch(event.request)
+                .then((response) => {
+                    if (response && response.ok) {
+                        const clone = response.clone();
+                        caches.open(CACHE_VERSION).then((cache) => cache.put(event.request, clone));
+                    }
+                    return response;
+                })
+                .catch(() => caches.match(event.request).then((cached) => cached || caches.match('./')))
+        );
         return;
     }
 
