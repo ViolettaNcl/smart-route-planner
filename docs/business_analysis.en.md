@@ -30,10 +30,10 @@ Useful when:
 
 ### 1. Route input
 
-1. The user enters a list of cities in one line, `;`-separated, with live
-   autocomplete (`api/suggest.php`, live search via Nominatim, keyboard
-   navigation).
-2. The system strips extra whitespace and empty entries.
+1. The user edits independent stop rows: add, remove, reorder, reverse, or
+   pick a coordinate on the map.
+2. The system preserves start/finish, normalizes up to 12 stops, and geocodes
+   only entries without coordinates when the route is explicitly submitted.
 
 ### 2. City geocoding
 
@@ -90,8 +90,8 @@ Useful when:
 
 ### 7. Route sharing
 
-1. The user can copy a link that encodes the entire list of cities (no
-   server, no database).
+1. The user can copy a link containing structured stops and coordinates (no
+   server-side storage or database).
 2. The recipient opens the link and immediately sees the calculated route —
    the calculation runs automatically on page load.
 
@@ -169,16 +169,16 @@ Useful when:
 - ✅ AI day planner (K-Means) and AI trip note (LLM/fallback) — done.
 - ✅ Production A/B testing of models and live fine-tuning — done.
 - ✅ UI localization (RU/EN) and PWA installability — done.
-- ⏳ Persisted route history — not implemented; requires a database and user
-  accounts (see "Known Limitations" in the README).
+- ✅ Local history, favourites, and GeoJSON/GPX/KML export — implemented
+  without uploading history; cross-device sync still requires accounts/data storage.
 
 ## Technical Constraints
 
-- The application runs without a database: the only persistent state is the
+- The application runs without a database: mutable server-side state is the
   geocoding file cache, rate-limiter state, A/B-test statistics, and model
   weights after live fine-tuning.
-- Route history isn't saved — reloading the page resets the form state (but
-  not the site-wide files on disk listed above).
+- Route history/favourites are stored in this browser's `localStorage` and
+  are not synchronized between devices.
 - Weather, points of interest, and the AI note depend on the availability of
   free third-party services with no SLA — if unavailable, the app simply
   omits the corresponding panel, without breaking the main route

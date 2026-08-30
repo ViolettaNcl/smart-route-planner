@@ -1,0 +1,36 @@
+name: Production smoke
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 */6 * * *'
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+
+concurrency:
+  group: production-smoke
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    if: >-
+      github.event_name != 'workflow_run' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'master'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 7
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify public production flow
+        env:
+          PRODUCTION_URL: https://smart-route-planner-violettancls-projects.vercel.app
+          EXPECTED_COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          SMOKE_WAIT_MS: '240000'
+        run: node tests/production-smoke.mjs

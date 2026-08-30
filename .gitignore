@@ -6,6 +6,9 @@ config.local.php
 # может создать эту папку локально) ---
 /vendor/
 /node_modules/
+/test-results/
+/playwright-report/
+/blob-report/
 
 # --- Рантайм-данные: кэш геокодера, состояние rate limiter'а, статистика
 # A/B-теста и дообученные веса модели. Не тащим в git — пересоздаются сами

@@ -37,7 +37,7 @@ public/
   api/
     route.php                  # POST: main route calculation (geo + optimization + ML + routing + cost)
     day_plan.php                # POST: day-by-day route plan (K-Means)
-    suggest.php                  # GET/POST: city autocomplete (proxies Nominatim)
+    suggest.php                  # GET: configured search; public Nominatim stays submit-only
     poi.php                       # POST: points of interest along the route (Overpass)
     weather.php                    # POST: weather at each route point (Open-Meteo)
     assistant.php                   # POST: AI trip note (LLM or rule-based fallback)
@@ -52,6 +52,8 @@ public/
     css/route.css
     js/
       app.js                    # Frontend orchestration: fetch calls, form state, rendering (cards/map/POI/weather/day-plan widgets), event handlers
+      route-editor.js           # Structured stops: reorder/reverse/map-pick/demo
+      product.js                # Alternatives, maneuvers, history, export, mobile sheet
       ui.js                      # UI-only layer with no API calls: light/dark theme (persisted in localStorage, re-themes the map and the model chart) + result-panel tabs
       i18n.js                    # RU/EN dictionary + DOM translation, choice persisted in localStorage
       ml_boundary.js               # Chart.js visualization of the decision boundary (MLP ⇄ softmax) + A/B widget
@@ -128,17 +130,18 @@ docker-compose.yml              # Local run / simple VPS deployment
 
 ## Data Flow (route calculation request)
 
-1. The user enters cities in `public/index.php`; JS (`app.js`) intercepts
-   the form submit and issues `fetch('api/route.php', { method: 'POST' })`.
+1. The user edits independent stops in `route-editor.js`; `app.js` sends
+   `stops_json` (label + optional lat/lon), legacy `points`, and the
+   optimisation flag to `api/route.php`.
 2. `public/api/route.php` builds the dependencies (`NominatimGeocoder`,
    `HaversineCalculator`, `RouteOptimizer`, `TransportPredictor`,
    `OsrmRoadRouter`, `CostEstimator`) and passes them into `RoutePlanner`.
-3. `RoutePlanner::plan()`:
-   - parses the point string (`;`-separated);
+3. `RoutePlanner::planStops()` (legacy `plan()` remains a compatible wrapper):
+   - normalizes up to 12 stops with stable internal IDs;
    - geocodes each point (`GeocoderInterface::geocode`); unrecognized cities
      are collected into `skipped` rather than silently dropped;
    - returns an error if fewer than two valid points remain;
-   - optimizes point order (`RouteOptimizer::optimize`);
+   - preserves start/finish and optimizes only intermediate points;
    - attempts real road routing via `RoadRouterInterface::route()`
      (implemented by `OsrmRoadRouter`); if OSRM is unavailable the method
      returns `null` and the app **transparently falls back** to great-circle
@@ -181,7 +184,7 @@ break `api/route.php`:
 | `api/weather.php` | Weather at each route point via Open-Meteo, no API key (`App\Weather\OpenMeteoClient`) |
 | `api/poi.php` | Points of interest (gas stations/cafés/restaurants/hotels) near the route via the Overpass API, no key (`App\Geodata\OverpassPoiFinder`) |
 | `api/day_plan.php` | Splits an already-calculated route into mileage-balanced driving days (`App\ML\KMeansDaySplitter`, unsupervised K-Means) |
-| `api/suggest.php` | City autocomplete while typing — proxies Nominatim (the browser can't set the required User-Agent itself) |
+| `api/suggest.php` | Search through an explicitly configured compatible endpoint; public Nominatim returns `submit_only` without autocomplete requests |
 | `api/decision_boundary.php` | Computes the model's prediction on a regular [distance × stops] grid for the Chart.js decision-boundary visualization |
 | `api/explain.php` | Breaks down one specific model prediction numerically — "why this mode of transport" |
 | `api/ab_stats.php` | Returns aggregated A/B-test statistics (MLP vs softmax) from `var/ab_stats.json` |
@@ -192,14 +195,14 @@ break `api/route.php`:
 
 ## Route Sharing Without a Database
 
-The "Copy link" button never talks to the server at all: the user-entered
-list of cities is Base64-encoded directly into the URL (`?r=<base64>`).
-Opening that link decodes the parameter client-side, populates the form, and
-triggers the route calculation automatically — the recipient sees the
-finished result immediately. This is a deliberate trade-off: without a
-database you can't store history or shorten the link, but for sharing one
-specific route that's unnecessary — and the resulting solution is about as
-simple as it gets, with zero database tables involved.
+The "Copy link" button never talks to the server: structured stops and their
+coordinates are Base64-encoded directly into the URL (`?s=<base64>`), while
+legacy `?r=<base64>` city-list links remain supported. Opening the link
+restores the editor client-side and triggers calculation automatically — the
+recipient sees the finished result immediately. This is a deliberate trade-off: without a
+database you cannot synchronize history across devices or shorten the link.
+Local history/favourites remain in the browser; GeoJSON/GPX/KML exports are
+generated client-side without uploading the route.
 
 ## Data Flow (model training)
 
@@ -250,14 +253,17 @@ simple as it gets, with zero database tables involved.
 | `Logger` | Dependency-free file logger — records fallback transitions (OSRM→Haversine, LLM→rule-based) |
 | `Tests\Http\HttpTestServer` | Boots a real `php -S`, exposes `get()`/`post()` via cURL — the basis for HTTP integration tests |
 | `public/assets/js/app.js` | Frontend orchestration: API fetch calls, form state, rendering of result cards/map/feature widgets, event handlers |
+| `public/assets/js/route-editor.js` | Structured stop editor and map-coordinate picking |
+| `public/assets/js/product.js` | Alternatives, navigation, history/favourites, exports, mobile bottom sheet |
 | `public/assets/js/ui.js` | UI-only layer with no API calls: theme (light/dark, localStorage), keeping the map and model chart in sync with the theme, result-panel tabs |
 | `public/assets/js/i18n.js` | UI localization (RU/EN), choice persisted in `localStorage` |
 | `public/assets/js/ml_boundary.js` | Decision-boundary and A/B-widget visualization via Chart.js |
 
 ## External Integrations
 
-- **OpenStreetMap Nominatim** — city geocoding and autocomplete (see
-  `NominatimGeocoder`, `api/suggest.php`).
+- **OpenStreetMap Nominatim** — explicit geocoding on route submission; the
+  public endpoint is not used for autocomplete. A separately configured
+  compatible endpoint may serve `api/suggest.php`.
 - **OSRM** (router.project-osrm.org) — real road routing, exact distance and
   travel time for cars (see `OsrmRoadRouter`); a free public demo server
   with no SLA — the app is designed to keep working when it's unreachable.

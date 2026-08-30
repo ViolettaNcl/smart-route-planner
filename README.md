@@ -13,7 +13,7 @@
   <img src="https://img.shields.io/badge/PHP-8.1+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.1+">
   <img src="https://img.shields.io/badge/UI-RU_%2F_EN-4c9aff?style=flat-square" alt="Bilingual UI">
   <img src="https://img.shields.io/badge/ML-MLP_%2B_Backprop_from_scratch-orange?style=flat-square" alt="Neural net from scratch">
-  <img src="https://img.shields.io/badge/tests-132_passing-success?style=flat-square" alt="132 tests passing">
+  <img src="https://img.shields.io/badge/tests-unit_%2B_HTTP_%2B_browser-success?style=flat-square" alt="Unit, HTTP and browser tests">
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
 </p>
 
@@ -39,8 +39,9 @@
 
 ## Overview
 
-Enter a list of cities and the app geocodes them, **works out the most efficient
-visiting order** (rather than driving them in the order they were typed),
+Build a trip with independent address or map-coordinate stops, compare real
+road alternatives and turn-by-turn instructions, and let the app **optimise
+the intermediate visiting order** while preserving start and finish. It also
 **predicts a suitable mode of transport with a neural network trained from
 scratch**, renders the trip on an **interactive map**, and generates an
 **AI travel note** (rest stops, overnight stays, weather) via an LLM.
@@ -62,8 +63,8 @@ What this project is meant to demonstrate:
   including the case where the linear model wins.
 - **A classic algorithms problem solved properly** — TSP via Nearest Neighbor
   + 2-opt, not a brute-force permutation.
-- **Engineering maturity beyond the ML** — 132 automated tests (unit +
-  HTTP-integration), a from-scratch rate limiter (token bucket, not a naive
+- **Engineering maturity beyond the ML** — automated unit, HTTP-integration,
+  browser, and production smoke tests; a from-scratch rate limiter (token bucket, not a naive
   fixed window), a CI matrix across three PHP versions, and a
   fail-open-by-design architecture where any external service (routing,
   weather, POIs, LLM) can go down without breaking the core flow.
@@ -104,6 +105,12 @@ What this project is meant to demonstrate:
 - **Real road routing** via OSRM — actual road geometry, not straight lines
   between cities, with a transparent fallback to great-circle distance if the
   routing service is unavailable.
+- **Structured route editor** — independent stop records with stable IDs,
+  fixed start/finish, reorder/reverse controls, map picking, and a coordinate-
+  backed demo route. Duplicate labels no longer overwrite one another.
+- **Real route alternatives and turn-by-turn directions** — the backend asks
+  OSRM for alternatives and steps, normalizes maneuvers, and lets the user
+  switch geometry, distance, duration, cost, and CO₂ without recalculating.
 - **Travel-time estimation** — exact driving time from OSRM, an
   average-speed approximation for walking/public transit.
 - **Points of interest along the route** (gas stations, cafés, restaurants,
@@ -135,7 +142,13 @@ What this project is meant to demonstrate:
   editable in the UI.
 - **PWA** — installable on mobile, with a service worker caching the app
   shell for offline use.
-- **City autocomplete** — live search via Nominatim, keyboard-navigable.
+- **Policy-safe geocoding** — public Nominatim is queried only on explicit
+  route submission. Autocomplete stays disabled unless a compatible
+  self-hosted/contracted endpoint is configured explicitly.
+- **Local route library and open exports** — recent/favourite routes in local
+  storage plus GeoJSON, GPX, KML, print, Web Share, and classic map links.
+- **Mobile map-first bottom sheet** — peek/half/full route editor states keep
+  the map visible and support keyboard/Escape and reduced-motion preferences.
 - **Fully localized UI (Russian / English)** — one-click switch, no page
   reload, choice persisted in `localStorage`
   (`public/assets/js/i18n.js`).
@@ -149,8 +162,8 @@ What this project is meant to demonstrate:
   calculated, the visitor can flag whether the prediction was right, and
   aggregate accuracy for both models is tracked in `var/ab_stats.json` and
   shown in the UI.
-- **132 automated tests** — 106 unit tests (fake dependencies, no I/O) and 26
-  HTTP integration tests (see [Testing](#testing)).
+- **Layered automated verification** — unit and HTTP tests, deterministic
+  Playwright product-flow tests, and a scheduled post-deploy production smoke.
 
 ### Engineering
 
@@ -231,7 +244,7 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | AI assistant | Vercel AI Gateway (OIDC), Anthropic/OpenAI fallback, rule-based offline fallback |
 | Geodata | Overpass API (points of interest), Open-Meteo (weather) — both keyless |
 | Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap (keyless 2D/3D vector map), Chart.js, CSS custom properties (theming) |
-| Testing | A minimal custom test runner (no dependencies); HTTP integration tests via `php -S` |
+| Testing | PHP unit/HTTP suite, Playwright browser flows, scheduled production smoke |
 | Rate limiting | Token bucket from scratch (`App\Http\RateLimiter`), file storage with `flock` |
 | CI/CD | GitHub Actions — lint + tests on PHP 8.1/8.2/8.3, server smoke test, `composer audit`, automated Docker build, Dependabot |
 | Deployment | [Vercel Functions](https://smart-route-planner-violettancls-projects.vercel.app) with PHP 8.3 runtime; Docker/VPS and shared hosting/XAMPP remain supported |
@@ -250,6 +263,9 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 
 ```bash
 php tests/run.php
+npm ci
+npm run test:e2e
+npm run smoke:production
 ```
 
 Covers: distance calculation (Haversine), route-order optimization (TSP
@@ -260,7 +276,7 @@ limiter (token bucket across clients, replenishment over time, fail-open on
 disk errors), travel-time and cost estimation, full `RoutePlanner`
 integration, and HTTP integration tests against a real `php -S` server
 (405/422/429, `error_code`, day-plan/decision-boundary/explain/assistant
-end-to-end) — 132 tests in total. Runs automatically in CI on every push
+end-to-end), plus deterministic browser and live-production flows. Runs automatically in CI on every push
 (see [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
 
 ## Known Limitations
@@ -289,8 +305,9 @@ end-to-end) — 132 tests in total. Runs automatically in CI on every push
 - Overpass (points of interest) and Open-Meteo (weather) are free public
   services with no SLA; if unavailable, the app simply omits that panel
   without breaking the main route calculation.
-- Route history isn't persisted (aside from link sharing) — a candidate for
-  a future iteration: SQLite storage, accounts, GPX export.
+- Route history and favourites are stored locally in the browser; there are no
+  accounts or cross-device synchronization yet. GeoJSON, GPX, and KML export
+  are client-side and do not upload the route anywhere.
 - Trip cost is a rough estimate (`src/Routing/CostEstimator.php`), not an
   exact figure — real fuel/ticket prices vary heavily by region and carrier.
   Currency is fixed (₽), but the calculation parameters are editable in the
@@ -300,9 +317,9 @@ end-to-end) — 132 tests in total. Runs automatically in CI on every push
   reviewing behind a load balancer/CDN (see the docblock on
   `App\Http\ClientIdentity`). Limiter state is a local file, not shared
   across multiple servers in a horizontally scaled deployment.
-- City autocomplete and the route calculation itself require internet access
-  (Nominatim/OSRM) — without it, the form reports the issue instead of
-  failing silently.
+- Address geocoding and road calculation require internet access
+  (Nominatim/OSRM). Coordinate stops selected on the map skip geocoding;
+  OSRM failure falls back to a visibly labelled straight-line route.
 - Localization (RU/EN) covers the whole UI, but server error messages are
   only translated for known `error_code` values; unrecognized errors are
   shown as-is (in Russian).

@@ -48,7 +48,7 @@ jobs:
         run: php tests/run.php
 
       - name: Frontend route-scene regression
-        run: node tests/frontend-route-scene.test.js
+        run: npm run test:frontend
 
       - name: Smoke test built-in server
         run: |
@@ -77,3 +77,41 @@ jobs:
 
       - name: Composer audit
         run: composer audit || echo "No known advisories - skipping."
+
+  frontend-e2e:
+    name: Browser product flow
+    runs-on: ubuntu-latest
+    needs: lint-and-test
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, mbstring, json
+          coverage: none
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run browser tests
+        run: npm run test:e2e
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
