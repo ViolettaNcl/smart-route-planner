@@ -17,7 +17,7 @@ info:
     обновляемый OIDC-токен; локально можно задать `AI_GATEWAY_API_KEY`,
     `ANTHROPIC_API_KEY` или `OPENAI_API_KEY`. Без них работает честный
     rule-based fallback.
-  version: "1.2.0"
+  version: "2.0.0"
   license:
     name: MIT
     url: https://github.com/ViolettaNcl/smart-route-planner/blob/main/LICENSE
@@ -48,7 +48,8 @@ paths:
       tags: [routing]
       summary: Рассчитать маршрут
       description: >
-        Основной эндпоинт: геокодирует города, оптимизирует порядок обхода
+        Основной эндпоинт: принимает структурированные точки или legacy-строку,
+        геокодирует только точки без координат, оптимизирует промежуточный порядок
         (Nearest Neighbor + 2-opt), пытается построить реальный маршрут по
         дорогам через OSRM (с честным откатом на дистанцию по прямой),
         предсказывает транспорт, считает время/стоимость/CO2.
@@ -58,12 +59,22 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               type: object
-              required: [points]
+              anyOf:
+                - required: [points]
+                - required: [stops_json]
               properties:
                 points:
                   type: string
                   description: Города через `;`
                   example: "Москва, Россия;Санкт-Петербург, Россия"
+                stops_json:
+                  type: string
+                  description: JSON-массив `{id?, label, lat?, lon?}`; максимум 12 точек
+                  example: '[{"label":"Berlin","lat":52.52,"lon":13.405},{"label":"Praha","lat":50.076,"lon":14.438}]'
+                optimize_order:
+                  type: boolean
+                  default: true
+                  description: Оптимизировать промежуточные точки, сохраняя старт и финиш
                 fuel_price_per_liter: { type: number, nullable: true }
                 fuel_consumption_l_100km: { type: number, nullable: true }
                 ticket_price_per_km: { type: number, nullable: true }
@@ -84,12 +95,24 @@ paths:
                   ok: { type: boolean, example: true }
                   points: { type: array, items: { type: string } }
                   coords:
-                    type: object
-                    additionalProperties:
+                    type: array
+                    items:
                       type: object
                       properties: { lat: { type: number }, lon: { type: number } }
+                  route_stops:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        label: { type: string }
+                        lat: { type: number }
+                        lon: { type: number }
+                        coordinate_source: { type: string, enum: [provided, geocoded] }
+                  optimized: { type: boolean }
                   distance_km: { type: number }
                   routing_source: { type: string, enum: [osrm_road, straight_line] }
+                  routing_provider: { type: string }
                   route_geometry:
                     type: array
                     items: { type: array, items: { type: number }, minItems: 2, maxItems: 2 }
@@ -99,6 +122,22 @@ paths:
                       minutes: { type: number }
                       label: { type: string }
                       exact: { type: boolean }
+                  route_options:
+                    type: array
+                    maxItems: 3
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        rank: { type: integer }
+                        distance_km: { type: number }
+                        driving_duration_min: { type: number, nullable: true }
+                        duration: { type: object }
+                        geometry: { type: array, items: { type: array, items: { type: number } } }
+                        legs: { type: array, items: { type: object } }
+                        navigation_available: { type: boolean }
+                        cost: { type: object }
+                        emissions: { type: object }
                   stops: { type: integer }
                   transport:
                     type: object
@@ -118,8 +157,11 @@ paths:
                       google: { type: string, format: uri }
                       yandex: { type: string, format: uri }
                   calculated_at: { type: string, format: date-time }
+                  request_id: { type: string }
         '422':
           $ref: '#/components/responses/ValidationError'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
         '429':
           $ref: '#/components/responses/RateLimited'
         '500':
@@ -164,8 +206,11 @@ paths:
   /suggest.php:
     get:
       tags: [geodata]
-      summary: Автоподсказки городов
-      description: Прокси к Nominatim (браузер не может сам выставить нужный User-Agent).
+      summary: Поиск мест для отдельно настроенного провайдера
+      description: >
+        В стандартной конфигурации публичного Nominatim возвращает пустой
+        список и `mode=submit_only`, потому что его policy запрещает autocomplete.
+        Результаты доступны только для явно настроенного совместимого endpoint.
       parameters:
         - name: q
           in: query
@@ -180,6 +225,8 @@ paths:
                 type: object
                 properties:
                   ok: { type: boolean }
+                  mode: { type: string, enum: [submit_only, explicit_search] }
+                  provider: { type: string }
                   suggestions:
                     type: array
                     items:
@@ -484,11 +531,16 @@ components:
       type: object
       properties:
         ok: { type: boolean }
+        service: { type: string }
+        version: { type: string }
+        environment: { type: string }
         checks:
           type: object
           properties:
             model_weights: { type: boolean }
-            var_writable: { type: boolean }
+            runtime_storage_writable: { type: boolean }
+        providers: { type: object }
+        capabilities: { type: object }
         php_version: { type: string }
         timestamp: { type: string, format: date-time }
 
@@ -502,6 +554,11 @@ components:
   responses:
     ValidationError:
       description: Некорректный ввод (например, меньше двух валидных точек маршрута)
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
+    PayloadTooLarge:
+      description: JSON списка точек превышает безопасный предел 32 KiB
       content:
         application/json:
           schema: { $ref: '#/components/schemas/ErrorResponse' }

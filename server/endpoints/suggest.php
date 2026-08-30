@@ -8,8 +8,10 @@ use App\Geocoding\NominatimGeocoder;
 use App\Http\RateLimitGuard;
 
 /**
- * Автоподсказки городов при вводе (используется фронтендом для textarea
- * с точками маршрута). Проксирует запрос к Nominatim, чтобы:
+ * Явный поиск мест для совместимого self-hosted Nominatim endpoint.
+ * Публичный nominatim.openstreetmap.org не поддерживает autocomplete, поэтому
+ * в стандартной конфигурации endpoint честно сообщает режим submit_only и
+ * не выполняет сетевой запрос.
  * - не обращаться к Nominatim прямо из браузера пользователя: там обязателен
  *   свой User-Agent по их политике использования, а из браузера его не
  *   выставить;
@@ -43,9 +45,25 @@ if (!is_string($query) || mb_strlen(trim($query)) < 2) {
 
 try {
     $geocoder = new NominatimGeocoder();
+
+    if (!$geocoder->isAutocompleteAllowed()) {
+        echo json_encode([
+            'ok' => true,
+            'suggestions' => [],
+            'mode' => 'submit_only',
+            'provider' => $geocoder->providerName(),
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
     $suggestions = $geocoder->suggest($query, 5);
 
-    echo json_encode(['ok' => true, 'suggestions' => $suggestions], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+        'ok' => true,
+        'suggestions' => $suggestions,
+        'mode' => 'explicit_search',
+        'provider' => $geocoder->providerName(),
+    ], JSON_UNESCAPED_UNICODE);
 } catch (\Throwable $e) {
     // Автоподсказки — необязательная функция UX: при сбое просто отдаём
     // пустой список, чтобы не ломать основную форму ввода городов.

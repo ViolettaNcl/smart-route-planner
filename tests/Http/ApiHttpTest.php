@@ -58,6 +58,14 @@ class ApiHttpTest
         $res = $this->server->post('/api/route.php', ['points' => '']);
         $t->assertEquals('POST /api/route.php с пустыми points -> 422', 422, $res['status']);
         $t->assertEquals('POST /api/route.php с пустыми points -> error_code EMPTY_POINTS', 'EMPTY_POINTS', $res['body']['error_code'] ?? null);
+
+        $invalid = $this->server->post('/api/route.php', ['stops_json' => '{broken']);
+        $t->assertEquals('POST /api/route.php с невалидным stops_json -> 422', 422, $invalid['status']);
+        $t->assertEquals('Невалидный stops_json -> INVALID_STOPS', 'INVALID_STOPS', $invalid['body']['error_code'] ?? null);
+
+        $oversized = $this->server->post('/api/route.php', ['stops_json' => str_repeat('x', 32769)]);
+        $t->assertEquals('Слишком большой stops_json -> 413', 413, $oversized['status']);
+        $t->assertEquals('Слишком большой stops_json -> PAYLOAD_TOO_LARGE', 'PAYLOAD_TOO_LARGE', $oversized['body']['error_code'] ?? null);
     }
 
     private function testDayPlan(TestReporter $t): void

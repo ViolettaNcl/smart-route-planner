@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 require __DIR__ . '/../../bootstrap.php';
 
+use App\Geocoding\NominatimGeocoder;
+use App\Routing\OsrmRoadRouter;
 use App\Support\RuntimeStorage;
 
 /**
@@ -53,11 +55,28 @@ $runtimeDir = RuntimeStorage::baseDir();
 $checks['runtime_storage_writable'] = is_dir($runtimeDir) && is_writable($runtimeDir);
 
 $healthy = !in_array(false, $checks, true);
+$commitSha = trim((string) (getenv('VERCEL_GIT_COMMIT_SHA') ?: getenv('GIT_COMMIT_SHA') ?: 'local'));
+$version = $commitSha === 'local' ? 'local' : substr($commitSha, 0, 12);
+$geocoder = new NominatimGeocoder();
+$router = new OsrmRoadRouter();
 
 http_response_code($healthy ? 200 : 503);
 echo json_encode([
     'ok' => $healthy,
+    'service' => 'smart-route-planner',
+    'version' => $version,
+    'environment' => (string) (getenv('VERCEL_ENV') ?: 'local'),
     'checks' => $checks,
+    'providers' => [
+        'geocoding' => $geocoder->providerName(),
+        'routing' => $router->providerName(),
+    ],
+    'capabilities' => [
+        'structured_stops' => true,
+        'route_alternatives' => true,
+        'navigation_steps' => true,
+        'autocomplete' => $geocoder->isAutocompleteAllowed(),
+    ],
     'php_version' => PHP_VERSION,
-    'timestamp' => date('c'),
-], JSON_UNESCAPED_UNICODE);
+    'timestamp' => gmdate('c'),
+], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
