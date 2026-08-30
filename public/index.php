@@ -1,9 +1,34 @@
+<?php
+$publicUrl = getenv('APP_PUBLIC_URL');
+$publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) === 1
+    ? rtrim($publicUrl, '/')
+    : 'https://smart-route-planner-violettancls-projects.vercel.app';
+?>
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Smart Route Planner</title>
+    <title>Smart Route Planner — умный редактор маршрутов</title>
+    <meta name="description" content="Планировщик поездок с реальными дорожными маршрутами, альтернативами, пошаговой навигацией, оптимизацией остановок, стоимостью и CO₂.">
+    <meta name="robots" content="index,follow,max-image-preview:large">
+    <link rel="canonical" href="<?= htmlspecialchars($publicUrl, ENT_QUOTES, 'UTF-8') ?>/">
+    <meta property="og:type" content="website">
+    <meta property="og:title" content="Smart Route Planner">
+    <meta property="og:description" content="Соберите маршрут, сравните реальные альтернативы и получите навигационные инструкции.">
+    <meta property="og:url" content="<?= htmlspecialchars($publicUrl, ENT_QUOTES, 'UTF-8') ?>/">
+    <meta property="og:image" content="<?= htmlspecialchars($publicUrl, ENT_QUOTES, 'UTF-8') ?>/assets/icons/icon-512.png">
+    <meta name="twitter:card" content="summary">
+    <script type="application/ld+json"><?= json_encode([
+        '@context' => 'https://schema.org',
+        '@type' => 'WebApplication',
+        'name' => 'Smart Route Planner',
+        'url' => $publicUrl . '/',
+        'applicationCategory' => 'TravelApplication',
+        'operatingSystem' => 'Any',
+        'description' => 'Route editor with road alternatives, navigation instructions and trip estimates.',
+        'offers' => ['@type' => 'Offer', 'price' => '0', 'priceCurrency' => 'RUB'],
+    ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?></script>
 
     <!-- Применяем сохранённую тему ДО отрисовки CSS, чтобы не было "вспышки"
          тёмного/светлого интерфейса при перезагрузке страницы. -->
@@ -38,7 +63,7 @@
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=10">
+    <link rel="stylesheet" href="assets/css/route.css?v=11">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -87,28 +112,39 @@
     </header>
 
     <div class="layout">
-        <aside class="panel" aria-labelledby="route-form-title">
+        <aside class="panel sheet-half" aria-labelledby="route-form-title" data-sheet-state="half">
+            <button type="button" id="panel-sheet-handle" class="panel-sheet-handle" aria-expanded="true">
+                <span class="sheet-grabber" aria-hidden="true"></span>
+                <span data-i18n="mobileRouteSheet">Редактор маршрута</span>
+            </button>
             <div class="panel-heading">
                 <span class="section-kicker" data-i18n="routeSetupKicker">01 · Маршрут</span>
                 <h2 id="route-form-title" data-i18n="routeSetupTitle">Куда отправимся?</h2>
                 <p data-i18n="routeSetupSubtitle">Добавьте минимум две точки — порядок будет оптимизирован автоматически.</p>
             </div>
             <form id="route-form">
-                <label for="points" class="field-label">
-                    <span data-i18n="pointsLabel">Введите точки через «;»</span>
+                <label id="route-stops-label" class="field-label">
+                    <span data-i18n="routeEditorLabel">Точки маршрута</span>
                     <span class="required-mark" aria-hidden="true">*</span>
                 </label>
-                <div class="autocomplete-wrap">
-                    <textarea id="points" name="points" autocomplete="off"
-                        aria-describedby="route-input-hint route-point-count"
-                        data-i18n-placeholder="pointsPlaceholder"
-                        placeholder="Например: Волгоград, Россия;Ростов-на-Дону, Россия;Воронеж, Россия;Москва, Россия"></textarea>
-                    <ul id="suggestions" class="suggestions hidden"></ul>
+                <div id="route-stop-list" class="route-stop-list" role="list" aria-labelledby="route-stops-label"></div>
+                <div class="route-editor-toolbar" role="group" data-i18n-aria-label="routeEditorTools">
+                    <button type="button" id="add-stop-button" class="editor-tool" data-i18n="addStop">＋ Точка</button>
+                    <button type="button" id="reverse-route-button" class="editor-tool" data-i18n="reverseRoute">⇅ Развернуть</button>
+                    <button type="button" id="map-pick-button" class="editor-tool" aria-pressed="false" data-i18n="pickOnMap">⌖ На карте</button>
+                    <button type="button" id="demo-route-button" class="editor-tool editor-tool-accent" data-i18n="demoRoute">▶ Демо</button>
                 </div>
+                <input type="hidden" id="points" name="points" value="">
+                <input type="hidden" id="stops-json" name="stops_json" value="[]">
                 <div class="route-input-meta">
-                    <span id="route-input-hint" data-i18n="routeInputHint">Разделяйте города точкой с запятой</span>
+                    <span id="route-input-hint" data-i18n="routeEditorHint">Старт и финиш фиксированы; промежуточные точки можно менять местами</span>
                     <span id="route-point-count" aria-live="polite">0 точек</span>
                 </div>
+
+                <label class="optimize-toggle" for="optimize-order">
+                    <input type="checkbox" id="optimize-order" checked>
+                    <span><strong data-i18n="optimizeOrderTitle">Оптимизировать промежуточные</strong><small data-i18n="optimizeOrderHint">Старт и финиш сохранятся</small></span>
+                </label>
 
                 <details class="cost-settings">
                     <summary data-i18n="costSettingsSummary">⚙️ Настройки стоимости поездки</summary>
@@ -161,6 +197,7 @@
         </aside>
 
         <section class="map-panel" aria-labelledby="map-canvas-title">
+            <button type="button" id="map-focus-toggle" class="map-focus-toggle" data-i18n="focusMap">⛶ Карта</button>
             <div class="map-identity">
                 <span class="map-identity-icon" aria-hidden="true">
                     <svg viewBox="0 0 24 24" width="18" height="18">
@@ -291,9 +328,21 @@
             <p id="cost-note" class="cost-note-text"></p>
         </div>
 
+        <section id="route-options-section" class="route-options-section" aria-labelledby="route-options-title">
+            <div class="section-heading-inline">
+                <div>
+                    <span class="section-kicker" data-i18n="routeOptionsKicker">Варианты OSRM</span>
+                    <h3 id="route-options-title" data-i18n="routeOptionsTitle">Сравните реальные маршруты</h3>
+                </div>
+                <small id="route-options-note" data-i18n="routeOptionsHint">Показаны только варианты, возвращённые дорожным сервисом</small>
+            </div>
+            <div id="route-options" class="route-options" role="radiogroup" data-i18n-aria-label="routeOptionsLabel"></div>
+        </section>
+
         <div class="tabs">
             <div class="tab-nav" role="tablist">
                 <button type="button" id="tab-cities" class="tab-nav-btn active" role="tab" aria-controls="panel-cities" aria-selected="true" tabindex="0" data-tab="cities" data-i18n="tabCities">📍 Города</button>
+                <button type="button" id="tab-navigation" class="tab-nav-btn" role="tab" aria-controls="panel-navigation" aria-selected="false" tabindex="-1" data-tab="navigation" data-i18n="tabNavigation">🧭 Навигация</button>
                 <button type="button" id="tab-model" class="tab-nav-btn" role="tab" aria-controls="panel-model" aria-selected="false" tabindex="-1" data-tab="model" data-i18n="tabModel">🧠 Модель</button>
                 <button type="button" id="tab-assistant" class="tab-nav-btn" role="tab" aria-controls="panel-assistant" aria-selected="false" tabindex="-1" data-tab="assistant" data-i18n="tabAssistant">🤖 AI-совет</button>
                 <button type="button" id="tab-extras" class="tab-nav-btn" role="tab" aria-controls="panel-extras" aria-selected="false" tabindex="-1" data-tab="extras" data-i18n="tabExtras">🧰 Доп.</button>
@@ -302,6 +351,18 @@
 
             <div id="panel-cities" class="tab-panel" role="tabpanel" aria-labelledby="tab-cities" tabindex="0" data-tab-panel="cities">
                 <ul id="points-list" class="points-list"></ul>
+            </div>
+
+            <div id="panel-navigation" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-navigation" tabindex="0" data-tab-panel="navigation">
+                <div class="navigation-head">
+                    <div>
+                        <h3 data-i18n="navigationTitle">Пошаговые инструкции</h3>
+                        <p id="navigation-source" data-i18n="navigationHint">Манёвры и расстояния получены из выбранного дорожного маршрута.</p>
+                    </div>
+                    <button type="button" id="print-route-button" class="btn secondary compact-btn" data-i18n="printRoute">Печать</button>
+                </div>
+                <ol id="navigation-steps" class="navigation-steps"></ol>
+                <p id="navigation-empty" class="navigation-empty hidden" data-i18n="navigationEmpty">Для резервного прямого маршрута пошаговая навигация недоступна.</p>
             </div>
 
             <div id="panel-model" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-model" tabindex="0" data-tab-panel="model">
@@ -362,16 +423,30 @@
 
             <div id="panel-share" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-share" tabindex="0" data-tab-panel="share">
                 <div class="links">
-                    <a id="link-google" class="btn" href="#" target="_blank" data-i18n="linkGoogle">Google Maps</a>
-                    <a id="link-yandex" class="btn secondary" href="#" target="_blank" data-i18n="linkYandex">Yandex Maps</a>
+                    <a id="link-google" class="btn" href="#" target="_blank" rel="noopener noreferrer" data-i18n="linkGoogle">Google Maps</a>
+                    <a id="link-yandex" class="btn secondary" href="#" target="_blank" rel="noopener noreferrer" data-i18n="linkYandex">Yandex Maps</a>
                 </div>
                 <button type="button" id="share-button" class="btn share-btn" data-i18n="shareButton">🔗 Скопировать ссылку на маршрут</button>
+                <div class="route-actions-grid">
+                    <button type="button" id="favorite-route-button" class="btn secondary" data-i18n="favoriteRoute">☆ В избранное</button>
+                    <button type="button" id="export-geojson-button" class="btn secondary">GeoJSON</button>
+                    <button type="button" id="export-gpx-button" class="btn secondary">GPX</button>
+                    <button type="button" id="export-kml-button" class="btn secondary">KML</button>
+                </div>
+                <section class="saved-routes" aria-labelledby="saved-routes-title">
+                    <div class="saved-routes-heading">
+                        <h3 id="saved-routes-title" data-i18n="savedRoutes">Недавние и избранные</h3>
+                        <button type="button" id="clear-history-button" class="btn-link" data-i18n="clearHistory">Очистить историю</button>
+                    </div>
+                    <div id="saved-routes-list" class="saved-routes-list"></div>
+                </section>
                 <div id="share-toast" class="share-toast hidden"></div>
             </div>
         </div>
     </div>
 
-    <div id="boundary-section" class="boundary-section">
+    <div id="boundary-section" class="boundary-section" aria-label="ML Lab">
+        <div class="ml-lab-heading"><span class="section-kicker">ML LAB</span><p data-i18n="mlLabDescription">Экспериментальная зона модели отделена от основного планировщика.</p></div>
         <button type="button" id="boundary-toggle" class="btn secondary">
             Показать карту решений модели
         </button>
@@ -404,9 +479,11 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=10"></script>
-<script src="assets/js/ml_boundary.js?v=10"></script>
-<script src="assets/js/app.js?v=10"></script>
-<script src="assets/js/ui.js?v=10"></script>
+<script src="assets/js/i18n.js?v=11"></script>
+<script src="assets/js/route-editor.js?v=11"></script>
+<script src="assets/js/ml_boundary.js?v=11"></script>
+<script src="assets/js/app.js?v=11"></script>
+<script src="assets/js/ui.js?v=11"></script>
+<script src="assets/js/product.js?v=11"></script>
 </body>
 </html>

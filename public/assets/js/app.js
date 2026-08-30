@@ -8,10 +8,10 @@
  * на бесплатных векторных данных OpenFreeMap — без API-ключа.
  *
  * Дополнительно:
- * - ссылка-шеринг маршрута кодирует введённые города прямо в URL (base64) —
- *   без базы данных и без сервера. Получатель ссылки просто открывает её,
- *   JS декодирует параметр и сам запускает расчёт;
- * - автоподсказки городов при вводе (api/suggest.php -> Nominatim);
+ * - ссылка-шеринг кодирует структурированные остановки и координаты прямо
+ *   в URL (base64) — без базы данных. Legacy-ссылки со строкой городов также
+ *   остаются совместимыми;
+ * - структурированный редактор остановок (route-editor.js);
  * - переключатель языка (RU/EN) — см. i18n.js;
  * - PWA: регистрация service worker + подсказка "установить приложение".
  */
@@ -26,7 +26,6 @@ const mapContainer = document.getElementById('map');
 const shareButton = document.getElementById('share-button');
 const shareToast = document.getElementById('share-toast');
 const pointsInput = document.getElementById('points');
-const suggestionsList = document.getElementById('suggestions');
 const costFuelPrice = document.getElementById('cost-fuel-price');
 const costFuelConsumption = document.getElementById('cost-fuel-consumption');
 const costTicketPrice = document.getElementById('cost-ticket-price');
@@ -227,9 +226,21 @@ form.addEventListener('submit', (event) => {
 pointsInput.addEventListener('input', updateRoutePointCount);
 
 shareButton.addEventListener('click', () => {
-    const points = form.elements['points'].value;
-    const encoded = utf8ToBase64(points);
-    const url = location.origin + location.pathname + '?r=' + encoded;
+    const urlObject = new URL(location.origin + location.pathname);
+    const stops = window.routeEditor?.getStops();
+    if (Array.isArray(stops) && stops.length >= 2) {
+        urlObject.searchParams.set('s', utf8ToBase64(JSON.stringify(stops)));
+    } else {
+        urlObject.searchParams.set('r', utf8ToBase64(form.elements['points'].value));
+    }
+    const url = urlObject.toString();
+
+    if (typeof navigator.share === 'function') {
+        navigator.share({ title: document.title, text: dataShareText(), url }).then(() => {
+            showShareToast(t('shareCopied'));
+        }).catch(() => {});
+        return;
+    }
 
     navigator.clipboard.writeText(url).then(() => {
         showShareToast(t('shareCopied'));
@@ -238,16 +249,32 @@ shareButton.addEventListener('click', () => {
     });
 });
 
-// Если в URL есть ?r=... — это открытая по ссылке шеринга страница:
-// декодируем города и сразу считаем маршрут, без ожидания клика пользователя.
+function dataShareText() {
+    if (!lastRouteData) return 'Smart Route Planner';
+    return lastRouteData.points.join(' → ') + ' · ' + lastRouteData.distance_km + ' км';
+}
+
+// ?s= хранит структурированные точки с координатами; старый ?r= со строкой
+// городов остаётся совместимым. Оба варианта запускают расчёт автоматически.
 window.addEventListener('DOMContentLoaded', () => {
     const params = new URLSearchParams(location.search);
+    const structured = params.get('s');
     const shared = params.get('r');
 
-    if (shared) {
+    if (structured) {
+        try {
+            const stops = JSON.parse(base64ToUtf8(structured));
+            if (!Array.isArray(stops) || stops.length < 2) throw new Error('Invalid shared stops');
+            window.routeEditor?.setStops(stops);
+            calculateRoute(form.elements['points'].value);
+        } catch (e) {
+            showError(t('shareLinkBroken'));
+        }
+    } else if (shared) {
         try {
             const points = base64ToUtf8(shared);
             form.elements['points'].value = points;
+            window.routeEditor?.setFromLegacy(points);
             calculateRoute(points);
         } catch (e) {
             showError(t('shareLinkBroken'));
@@ -263,16 +290,22 @@ async function calculateRoute(points) {
     try {
         const body = new URLSearchParams();
         body.set('points', points);
+        if (window.routeEditor) body.set('stops_json', window.routeEditor.serialize());
+        body.set('optimize_order', document.getElementById('optimize-order')?.checked ? '1' : '0');
         body.set('fuel_price_per_liter', costFuelPrice.value);
         body.set('fuel_consumption_l_100km', costFuelConsumption.value);
         body.set('ticket_price_per_km', costTicketPrice.value);
         body.set('model_variant', getAbVariant());
 
+        const controller = new AbortController();
+        const timeout = window.setTimeout(() => controller.abort(), 45_000);
         const response = await fetch('api/route.php', {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: body.toString(),
+            signal: controller.signal,
         });
+        window.clearTimeout(timeout);
 
         const data = await response.json();
 
@@ -1319,137 +1352,6 @@ function base64ToUtf8(str) {
 }
 
 /* ------------------------------------------------------------------ *
- * Автоподсказки городов при вводе (Nominatim через api/suggest.php)
- *
- * Работаем только с "текущим" (последним) сегментом textarea — той частью
- * текста после последней «;», которую пользователь ещё печатает. Так проще
- * всего сочетать автоподсказку с полем, где вводится сразу несколько точек.
- * ------------------------------------------------------------------ */
-
-let suggestDebounceTimer = null;
-let suggestAbortController = null;
-let activeSuggestionIndex = -1;
-
-pointsInput.addEventListener('input', () => {
-    const segment = currentSegment();
-
-    clearTimeout(suggestDebounceTimer);
-
-    if (segment.trim().length < 2) {
-        hideSuggestions();
-        return;
-    }
-
-    suggestDebounceTimer = setTimeout(() => fetchSuggestions(segment.trim()), 350);
-});
-
-pointsInput.addEventListener('blur', () => {
-    // Небольшая задержка, чтобы клик по подсказке успел сработать раньше blur.
-    setTimeout(hideSuggestions, 150);
-});
-
-pointsInput.addEventListener('keydown', (event) => {
-    const items = suggestionsList.querySelectorAll('li');
-    if (suggestionsList.classList.contains('hidden') || items.length === 0) {
-        return;
-    }
-
-    if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        activeSuggestionIndex = Math.min(activeSuggestionIndex + 1, items.length - 1);
-        highlightSuggestion(items);
-    } else if (event.key === 'ArrowUp') {
-        event.preventDefault();
-        activeSuggestionIndex = Math.max(activeSuggestionIndex - 1, 0);
-        highlightSuggestion(items);
-    } else if (event.key === 'Enter' && activeSuggestionIndex >= 0) {
-        event.preventDefault();
-        items[activeSuggestionIndex].click();
-    } else if (event.key === 'Escape') {
-        hideSuggestions();
-    }
-});
-
-function currentSegment() {
-    const value = pointsInput.value;
-    const cursor = pointsInput.selectionStart ?? value.length;
-    const uptoCursor = value.slice(0, cursor);
-    const lastSemicolon = uptoCursor.lastIndexOf(';');
-    return uptoCursor.slice(lastSemicolon + 1);
-}
-
-async function fetchSuggestions(query) {
-    if (suggestAbortController) {
-        suggestAbortController.abort();
-    }
-    suggestAbortController = new AbortController();
-
-    try {
-        const response = await fetch('api/suggest.php?q=' + encodeURIComponent(query), {
-            signal: suggestAbortController.signal,
-        });
-        const data = await response.json();
-
-        if (data.ok && Array.isArray(data.suggestions)) {
-            renderSuggestions(data.suggestions);
-        }
-    } catch (e) {
-        // Тихо игнорируем — автоподсказки необязательны, форма продолжает работать.
-    }
-}
-
-function renderSuggestions(suggestions) {
-    suggestionsList.innerHTML = '';
-    activeSuggestionIndex = -1;
-
-    if (suggestions.length === 0) {
-        hideSuggestions();
-        return;
-    }
-
-    suggestions.forEach((s) => {
-        const li = document.createElement('li');
-        li.textContent = s.display_name;
-        li.addEventListener('mousedown', (e) => e.preventDefault()); // не терять фокус до click
-        li.addEventListener('click', () => applySuggestion(s.display_name));
-        suggestionsList.appendChild(li);
-    });
-
-    show(suggestionsList);
-}
-
-function highlightSuggestion(items) {
-    items.forEach((li, i) => li.classList.toggle('active', i === activeSuggestionIndex));
-    if (items[activeSuggestionIndex]) {
-        items[activeSuggestionIndex].scrollIntoView({ block: 'nearest' });
-    }
-}
-
-function applySuggestion(displayName) {
-    const value = pointsInput.value;
-    const cursor = pointsInput.selectionStart ?? value.length;
-    const uptoCursor = value.slice(0, cursor);
-    const afterCursor = value.slice(cursor);
-    const lastSemicolon = uptoCursor.lastIndexOf(';');
-    const before = uptoCursor.slice(0, lastSemicolon + 1);
-    const prefix = before && !before.endsWith(' ') ? before + ' ' : before;
-
-    pointsInput.value = prefix + displayName + '; ' + afterCursor.replace(/^\s*/, '');
-    const newCursor = (prefix + displayName + '; ').length;
-    updateRoutePointCount();
-    pointsInput.focus();
-    pointsInput.setSelectionRange(newCursor, newCursor);
-
-    hideSuggestions();
-}
-
-function hideSuggestions() {
-    hide(suggestionsList);
-    suggestionsList.innerHTML = '';
-    activeSuggestionIndex = -1;
-}
-
-/* ------------------------------------------------------------------ *
  * PWA: регистрация service worker + подсказка "Установить приложение"
  * ------------------------------------------------------------------ */
 
@@ -1466,7 +1368,7 @@ if ('serviceWorker' in navigator) {
             });
         }
 
-        navigator.serviceWorker.register('service-worker.js?v=10').catch(() => {
+        navigator.serviceWorker.register('service-worker.js?v=11').catch(() => {
             // Если что-то пошло не так (например, http без TLS) — сайт всё равно
             // должен нормально работать, просто без офлайн-кэша.
         });
