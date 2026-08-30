@@ -38,7 +38,7 @@
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=9">
+    <link rel="stylesheet" href="assets/css/route.css?v=10">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 </head>
@@ -404,9 +404,9 @@
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=9"></script>
-<script src="assets/js/ml_boundary.js?v=9"></script>
-<script src="assets/js/app.js?v=9"></script>
-<script src="assets/js/ui.js?v=9"></script>
+<script src="assets/js/i18n.js?v=10"></script>
+<script src="assets/js/ml_boundary.js?v=10"></script>
+<script src="assets/js/app.js?v=10"></script>
+<script src="assets/js/ui.js?v=10"></script>
 </body>
 </html>

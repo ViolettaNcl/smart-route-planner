@@ -47,6 +47,9 @@ jobs:
       - name: Run test suite
         run: php tests/run.php
 
+      - name: Frontend route-scene regression
+        run: node tests/frontend-route-scene.test.js
+
       - name: Smoke test built-in server
         run: |
           set -e

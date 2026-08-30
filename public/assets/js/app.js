@@ -51,6 +51,10 @@ let routeAnimationFrame = null;
 let routeSceneToken = 0;
 let routeScenePhase = 'idle';
 let mapStyleFallbackTimer = null;
+let routeDrawingRetryTimer = null;
+
+const ROUTE_DRAWING_RETRY_DELAY_MS = 120;
+const ROUTE_DRAWING_RETRY_LIMIT = 25;
 
 const MAP_MODE_STORAGE_KEY = 'srp_map_mode';
 const ROUTE_SOURCE_ID = 'route-geometry';
@@ -682,6 +686,7 @@ function renderStaticRouteMap(coords, labels, routeGeometry) {
         routeAnimationFrame = null;
     }
     clearTimeout(mapStyleFallbackTimer);
+    clearTimeout(routeDrawingRetryTimer);
 
     try {
         if (routeMap && typeof routeMap.remove === 'function') {
@@ -1000,7 +1005,6 @@ function createRouteMap() {
     }
 
     routeMap.on('style.load', () => {
-        clearTimeout(mapStyleFallbackTimer);
         restoreMapLayers();
     });
     routeMap.on('error', (event) => {
@@ -1151,6 +1155,8 @@ function animateRouteLine(routeGeometry, token, onComplete) {
 
 function finishRouteScene(token) {
     if (token !== routeSceneToken) return;
+    clearTimeout(mapStyleFallbackTimer);
+    clearTimeout(routeDrawingRetryTimer);
     mapPanel?.classList.remove('map-framing', 'map-drawing', 'map-static');
     mapPanel?.classList.add('map-ready');
     show(mapTripSummary);
@@ -1163,14 +1169,39 @@ function finishRouteScene(token) {
     }, prefersReducedMotion() ? 0 : 900);
 }
 
-function beginRouteDrawing(coords, labels, routeGeometry, token) {
+function mapStyleCanAcceptRouteLayers() {
+    if (!routeMap) return false;
+
+    try {
+        const style = routeMap.getStyle();
+        // `isStyleLoaded()` also becomes false while optional terrain/source
+        // data is loading. The style JSON itself is already safe to extend as
+        // soon as its layer collection exists.
+        return Boolean(style && Array.isArray(style.layers) && style.layers.length > 0);
+    } catch (error) {
+        return false;
+    }
+}
+
+function beginRouteDrawing(coords, labels, routeGeometry, token, attempt = 0) {
     if (!routeMap || token !== routeSceneToken) return;
 
-    if (!routeMap.isStyleLoaded()) {
-        routeMap.once('style.load', () => beginRouteDrawing(coords, labels, routeGeometry, token));
+    if (!mapStyleCanAcceptRouteLayers()) {
+        if (attempt >= ROUTE_DRAWING_RETRY_LIMIT) {
+            console.warn('[Smart Route Planner] Map style did not become editable; using the static route view.');
+            renderStaticRouteMap(coords, labels, routeGeometry);
+            return;
+        }
+
+        clearTimeout(routeDrawingRetryTimer);
+        routeDrawingRetryTimer = window.setTimeout(
+            () => beginRouteDrawing(coords, labels, routeGeometry, token, attempt + 1),
+            ROUTE_DRAWING_RETRY_DELAY_MS
+        );
         return;
     }
 
+    clearTimeout(routeDrawingRetryTimer);
     clearTimeout(mapStyleFallbackTimer);
     mapPanel?.classList.remove('map-framing');
     mapPanel?.classList.add('map-drawing');
@@ -1197,6 +1228,8 @@ function renderMap(coords, labels, routeGeometry) {
     show(mapContainer);
     lastMapRender = { coords, labels, routeGeometry };
     const token = ++routeSceneToken;
+    clearTimeout(mapStyleFallbackTimer);
+    clearTimeout(routeDrawingRetryTimer);
 
     if (routeAnimationFrame !== null) {
         cancelAnimationFrame(routeAnimationFrame);
@@ -1254,10 +1287,9 @@ function renderMap(coords, labels, routeGeometry) {
     }
 
     window.setTimeout(startDrawing, cameraDuration + 180);
-    clearTimeout(mapStyleFallbackTimer);
     mapStyleFallbackTimer = window.setTimeout(() => {
-        if (token === routeSceneToken && routeMap && !routeMap.isStyleLoaded()) {
-            console.warn('[Smart Route Planner] Map style timed out; using the static route view.');
+        if (token === routeSceneToken && routeMap && routeScenePhase !== 'ready' && routeScenePhase !== 'idle') {
+            console.warn('[Smart Route Planner] Route scene timed out; using the static route view.');
             renderStaticRouteMap(coords, labels, routeGeometry);
         }
     }, 9000);
@@ -1434,7 +1466,7 @@ if ('serviceWorker' in navigator) {
             });
         }
 
-        navigator.serviceWorker.register('service-worker.js?v=9').catch(() => {
+        navigator.serviceWorker.register('service-worker.js?v=10').catch(() => {
             // Если что-то пошло не так (например, http без TLS) — сайт всё равно
             // должен нормально работать, просто без офлайн-кэша.
         });
