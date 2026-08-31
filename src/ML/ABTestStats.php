@@ -55,7 +55,12 @@ class ABTestStats
         return true;
     }
 
-    /** @return array<string, array<string, mixed>> */
+    /**
+     * @return array{
+     *     mlp: array{correct: int, incorrect: int, accuracy: ?float, total: int, confidence_interval: array{low: ?float, high: ?float, level: float}, result_ready: bool},
+     *     softmax: array{correct: int, incorrect: int, accuracy: ?float, total: int, confidence_interval: array{low: ?float, high: ?float, level: float}, result_ready: bool}
+     * }
+     */
     public function getStats(): array
     {
         if (!is_file($this->filePath)) {
@@ -64,23 +69,33 @@ class ABTestStats
             $stats = $this->decodeState((string) file_get_contents($this->filePath));
         }
 
-        foreach (['mlp', 'softmax'] as $variant) {
-            $counts = $stats[$variant] ?? ['correct' => 0, 'incorrect' => 0];
-            $total = $counts['correct'] + $counts['incorrect'];
-            $stats[$variant]['accuracy'] = $total > 0 ? round($counts['correct'] / $total * 100, 1) : null;
-            $stats[$variant]['total'] = $total;
-            [$low, $high] = $this->wilsonInterval($counts['correct'], $total);
-            $stats[$variant]['confidence_interval'] = [
+        return [
+            'mlp' => $this->formatStatsRow($stats['mlp']),
+            'softmax' => $this->formatStatsRow($stats['softmax']),
+        ];
+    }
+
+    /**
+     * @param array{correct: int, incorrect: int} $counts
+     * @return array{correct: int, incorrect: int, accuracy: ?float, total: int, confidence_interval: array{low: ?float, high: ?float, level: float}, result_ready: bool}
+     */
+    private function formatStatsRow(array $counts): array
+    {
+        $total = $counts['correct'] + $counts['incorrect'];
+        [$low, $high] = $this->wilsonInterval($counts['correct'], $total);
+
+        return [
+            'correct' => $counts['correct'],
+            'incorrect' => $counts['incorrect'],
+            'accuracy' => $total > 0 ? round($counts['correct'] / $total * 100, 1) : null,
+            'total' => $total,
+            'confidence_interval' => [
                 'low' => $low,
                 'high' => $high,
                 'level' => 0.95,
-            ];
-            $stats[$variant]['result_ready'] = $total >= 30;
-        }
-
-        unset($stats['_seen']);
-
-        return $stats;
+            ],
+            'result_ready' => $total >= 30,
+        ];
     }
 
     /** @return array{mlp: array{correct: int, incorrect: int}, softmax: array{correct: int, incorrect: int}, _seen: string[]} */

@@ -112,7 +112,10 @@ $trainRows = array_slice($rows, 0, $splitAt);
 $holdoutRows = array_slice($rows, $splitAt);
 $validationRows = array_slice($holdoutRows, 0, (int) (count($holdoutRows) / 2));
 
-/** @param array<int, array{distance: float, stops: int, label: string}> $source @return array{0: array<int, array{0: float, 1: float}>, 1: string[]} */
+/**
+ * @param array<int, array{distance: float, stops: int, label: string}> $source
+ * @return array{0: array<int, array{0: float, 1: float}>, 1: string[]}
+ */
 $encode = static function (array $source): array {
     $features = [];
     $labels = [];

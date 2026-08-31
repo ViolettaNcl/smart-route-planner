@@ -80,7 +80,7 @@ final class ModelInsightService
                 'inputs' => ['distance', 'stops'],
                 'outputs' => Dataset::CLASSES,
                 'hidden_activations' => $mlpExplanation['hidden_activations'] ?? [],
-                'hidden_contributions' => $mlpExplanation['contributions'] ?? [],
+                'hidden_contributions' => $mlpExplanation['contributions'],
                 'note' => 'Hidden-neuron contributions are exact terms in the winning-class logit, not causal effects.',
             ],
             'privacy' => [
@@ -261,6 +261,7 @@ final class ModelInsightService
             default => ['model' => 0.45, 'time' => 0.25, 'cost' => 0.15, 'co2' => 0.15],
         };
 
+        /** @var array<int, array{mode: string, mode_ru: string, model_probability: float, duration_min: float, cost_rub: float, co2_kg: float, viable: bool}> $options */
         $options = [];
         foreach (Dataset::CLASSES as $mode) {
             $options[$mode] = [
@@ -274,40 +275,50 @@ final class ModelInsightService
             ];
         }
 
-        foreach (['duration_min', 'cost_rub', 'co2_kg'] as $metric) {
-            $values = array_column($options, $metric);
-            $min = min($values);
-            $range = max($values) - $min;
-            foreach ($options as &$option) {
-                $option['_' . $metric] = $range > 0 ? 1.0 - (($option[$metric] - $min) / $range) : 1.0;
-            }
-            unset($option);
-        }
+        $durationValues = array_map(static fn (array $option): float => $option['duration_min'], $options);
+        $costValues = array_map(static fn (array $option): float => $option['cost_rub'], $options);
+        $co2Values = array_map(static fn (array $option): float => $option['co2_kg'], $options);
 
-        foreach ($options as &$option) {
+        /** @var array<int, array{mode: string, mode_ru: string, model_probability: float, duration_min: float, cost_rub: float, co2_kg: float, viable: bool, score: float, reason_codes: string[]}> $scoredOptions */
+        $scoredOptions = [];
+        foreach ($options as $option) {
+            $timeScore = $this->inverseNormalized($option['duration_min'], $durationValues);
+            $costScore = $this->inverseNormalized($option['cost_rub'], $costValues);
+            $co2Score = $this->inverseNormalized($option['co2_kg'], $co2Values);
             $score = $weights['model'] * ($option['model_probability'] / 100)
-                + $weights['time'] * $option['_duration_min']
-                + $weights['cost'] * $option['_cost_rub']
-                + $weights['co2'] * $option['_co2_kg'];
+                + $weights['time'] * $timeScore
+                + $weights['cost'] * $costScore
+                + $weights['co2'] * $co2Score;
             if (!$option['viable']) {
                 $score *= 0.12;
             }
             $option['score'] = round($score * 100, 1);
             $option['reason_codes'] = $this->reasonCodes($option, $priority);
-            unset($option['_duration_min'], $option['_cost_rub'], $option['_co2_kg']);
+            $scoredOptions[] = $option;
         }
-        unset($option);
 
-        usort($options, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
-        foreach ($options as $index => &$option) {
+        usort($scoredOptions, static fn (array $a, array $b): int => $b['score'] <=> $a['score']);
+        foreach ($scoredOptions as $index => &$option) {
             $option['rank'] = $index + 1;
         }
         unset($option);
 
-        return $options;
+        return $scoredOptions;
     }
 
-    /** @param array<string, mixed> $option @return string[] */
+    /** @param float[] $values */
+    private function inverseNormalized(float $value, array $values): float
+    {
+        $minimum = min($values);
+        $range = max($values) - $minimum;
+
+        return $range > 0 ? 1.0 - (($value - $minimum) / $range) : 1.0;
+    }
+
+    /**
+     * @param array<string, mixed> $option
+     * @return string[]
+     */
     private function reasonCodes(array $option, string $priority): array
     {
         $reasons = ['model_probability'];

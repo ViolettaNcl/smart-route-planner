@@ -154,7 +154,10 @@ $softmaxWeightsPath = __DIR__ . '/../src/ML/model_weights.json';
 file_put_contents($softmaxWeightsPath, json_encode($softmax->getWeights(), JSON_PRETTY_PRINT));
 echo "Веса Softmax сохранены в: {$softmaxWeightsPath}\n";
 
-/** @param array<int, float> $history @return array<int, array{epoch: int, loss: float}> */
+/**
+ * @param array<int, float> $history
+ * @return array<int, array{epoch: int, loss: float}>
+ */
 $historyRows = static function (array $history): array {
     $result = [];
     foreach ($history as $epoch => $loss) {
