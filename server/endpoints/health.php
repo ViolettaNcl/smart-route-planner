@@ -36,17 +36,19 @@ $checks = [];
 //    не сможет ничего предсказать.
 $weightsPath = __DIR__ . '/../../src/ML/mlp_weights.json';
 $fallbackWeightsPath = __DIR__ . '/../../src/ML/model_weights.json';
-$weightsOk = false;
+$weightsOk = true;
 foreach ([$weightsPath, $fallbackWeightsPath] as $path) {
-    if (is_file($path) && is_readable($path)) {
-        $raw = file_get_contents($path);
-        if ($raw !== false && json_decode($raw, true) !== null) {
-            $weightsOk = true;
-            break;
-        }
-    }
+    $raw = is_file($path) && is_readable($path) ? file_get_contents($path) : false;
+    $weightsOk = $weightsOk && $raw !== false && is_array(json_decode((string) $raw, true));
 }
 $checks['model_weights'] = $weightsOk;
+
+$trainingReportPath = __DIR__ . '/../../src/ML/training_report.json';
+$trainingReport = is_file($trainingReportPath) ? json_decode((string) file_get_contents($trainingReportPath), true) : null;
+$checks['model_training_report'] = is_array($trainingReport)
+    && count($trainingReport['models']['mlp']['snapshots'] ?? []) > 0
+    && ($trainingReport['model_versions']['mlp'] ?? null) === 'mlp-' . substr((string) hash_file('sha256', $weightsPath), 0, 8)
+    && ($trainingReport['model_versions']['softmax'] ?? null) === 'softmax-' . substr((string) hash_file('sha256', $fallbackWeightsPath), 0, 8);
 
 // 2) Runtime storage доступен на запись — там живут geocode-кэш, rate limiter
 //    и A/B-статистика; без записи приложение всё ещё отвечает на статические
@@ -75,6 +77,10 @@ echo json_encode([
         'structured_stops' => true,
         'route_alternatives' => true,
         'navigation_steps' => true,
+        'model_insights' => true,
+        'model_quality_report' => true,
+        'model_training_snapshots' => true,
+        'safe_feedback_queue' => true,
         'autocomplete' => $geocoder->isAutocompleteAllowed(),
     ],
     'php_version' => PHP_VERSION,

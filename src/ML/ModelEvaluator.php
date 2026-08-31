@@ -101,6 +101,109 @@ class ModelEvaluator
     }
 
     /**
+     * Adds probability-quality metrics to the class metrics above. The
+     * reliability bins answer a different question than accuracy: when the
+     * model says "about 70%", is it actually correct about 70% of the time?
+     *
+     * @param array<int, array{0: float, 1: float}> $features
+     * @param string[] $labels
+     * @param string[] $classes
+     * @return array<string, mixed>
+     */
+    public function evaluateProbabilities(
+        ClassifierInterface $model,
+        array $features,
+        array $labels,
+        array $classes,
+        int $binCount = 10
+    ): array {
+        $metrics = $this->evaluate($model, $features, $labels, $classes);
+        $bins = array_fill(0, $binCount, [
+            'count' => 0,
+            'confidence_sum' => 0.0,
+            'correct_sum' => 0,
+        ]);
+        $perClassBins = [];
+        foreach ($classes as $class) {
+            $perClassBins[$class] = array_fill(0, $binCount, [
+                'count' => 0,
+                'probability_sum' => 0.0,
+                'positive_sum' => 0,
+            ]);
+        }
+
+        $logLoss = 0.0;
+        $brier = 0.0;
+        $n = count($features);
+
+        foreach ($features as $index => [$x1, $x2]) {
+            $actual = $labels[$index];
+            $probabilities = $model->softmax($x1, $x2);
+            arsort($probabilities);
+            $predicted = (string) array_key_first($probabilities);
+            $confidence = (float) reset($probabilities);
+            $bin = min($binCount - 1, (int) floor($confidence * $binCount));
+            $bins[$bin]['count']++;
+            $bins[$bin]['confidence_sum'] += $confidence;
+            $bins[$bin]['correct_sum'] += $predicted === $actual ? 1 : 0;
+            $logLoss += -log(max((float) ($probabilities[$actual] ?? 0.0), 1e-12));
+
+            foreach ($classes as $class) {
+                $probability = (float) ($probabilities[$class] ?? 0.0);
+                $target = $class === $actual ? 1.0 : 0.0;
+                $brier += ($probability - $target) ** 2;
+                $classBin = min($binCount - 1, (int) floor($probability * $binCount));
+                $perClassBins[$class][$classBin]['count']++;
+                $perClassBins[$class][$classBin]['probability_sum'] += $probability;
+                $perClassBins[$class][$classBin]['positive_sum'] += (int) $target;
+            }
+        }
+
+        $ece = 0.0;
+        $reliability = [];
+        foreach ($bins as $index => $bin) {
+            if ($bin['count'] === 0) {
+                continue;
+            }
+            $averageConfidence = $bin['confidence_sum'] / $bin['count'];
+            $observedAccuracy = $bin['correct_sum'] / $bin['count'];
+            $ece += ($bin['count'] / max($n, 1)) * abs($averageConfidence - $observedAccuracy);
+            $reliability[] = [
+                'range_start' => round($index / $binCount, 2),
+                'range_end' => round(($index + 1) / $binCount, 2),
+                'count' => $bin['count'],
+                'predicted' => round($averageConfidence, 3),
+                'observed' => round($observedAccuracy, 3),
+            ];
+        }
+
+        $classCalibration = [];
+        foreach ($perClassBins as $class => $classBins) {
+            $classCalibration[$class] = [];
+            foreach ($classBins as $index => $bin) {
+                if ($bin['count'] === 0) {
+                    continue;
+                }
+                $classCalibration[$class][] = [
+                    'range_start' => round($index / $binCount, 2),
+                    'range_end' => round(($index + 1) / $binCount, 2),
+                    'count' => $bin['count'],
+                    'predicted' => round($bin['probability_sum'] / $bin['count'], 3),
+                    'observed' => round($bin['positive_sum'] / $bin['count'], 3),
+                ];
+            }
+        }
+
+        $metrics['log_loss'] = $n > 0 ? round($logLoss / $n, 4) : 0.0;
+        $metrics['brier_score'] = $n > 0 ? round($brier / $n, 4) : 0.0;
+        $metrics['expected_calibration_error'] = round($ece, 4);
+        $metrics['reliability'] = $reliability;
+        $metrics['calibration_by_class'] = $classCalibration;
+
+        return $metrics;
+    }
+
+    /**
      * K-fold кросс-валидация: honest-оценка вместо одного случайного
      * train/val разбиения. Данные делятся на $k примерно равных частей;
      * модель обучается k раз, каждый раз на (k-1) частях и проверяется на

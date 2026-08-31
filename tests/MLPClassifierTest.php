@@ -84,36 +84,15 @@ class MLPClassifierTest
             $freshWeights['w1'][0] !== $freshWeights['w1'][1]
         );
 
-        // --- "живое" дообучение на одном примере (trainOnExample) ---
-        $liveModel = new MLPClassifier(Dataset::CLASSES, hiddenSize: 8, seed: 7);
-        $liveModel->train($features, $labels, learningRate: 0.5, epochs: 300);
-
-        $x1 = FeatureEncoder::distanceFeature(50.0);
-        $x2 = FeatureEncoder::stopsFeature(3);
-        $probsBefore = $liveModel->softmax($x1, $x2);
-
-        // Много раз "убеждаем" модель, что правильный ответ — bus, даже если
-        // изначально она была уверена в чём-то другом — вероятность bus
-        // должна вырасти (или как минимум не упасть) после каждой итерации.
-        for ($i = 0; $i < 20; $i++) {
-            $liveModel->trainOnExample($x1, $x2, 'bus', learningRate: 0.3);
-        }
-        $probsAfter = $liveModel->softmax($x1, $x2);
-
-        $t->assertTrue(
-            'После 20 шагов live-обучения на метке "bus" её вероятность выросла',
-            $probsAfter['bus'] > $probsBefore['bus']
-        );
-
         // --- explain(): числа реально складываются в предсказание ---
-        $explanation = $liveModel->explain(0.3, 0.4);
+        $explanation = $model->explain(0.3, 0.4);
         $t->assertTrue(
             'explain() возвращает вклад по всем скрытым нейронам',
             count($explanation['contributions']) === 8
         );
         $t->assertEquals(
             'explain() согласован с predict()',
-            $liveModel->predict(0.3, 0.4),
+            $model->predict(0.3, 0.4),
             $explanation['predicted']
         );
     }

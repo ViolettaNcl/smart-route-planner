@@ -41,7 +41,9 @@ class ApiHttpTest
         $this->testDayPlan($t);
         $this->testDecisionBoundary($t);
         $this->testExplain($t);
+        $this->testModelInsightsAndQuality($t);
         $this->testAbStatsAndFeedback($t);
+        $this->testSafeFeedbackQueue($t);
         $this->testAssistantFallback($t);
         $this->testRateLimiting($t);
     }
@@ -94,6 +96,29 @@ class ApiHttpTest
         $res = $this->server->get('/api/decision_boundary.php?model=mlp');
         $t->assertEquals('GET /api/decision_boundary.php -> 200', 200, $res['status']);
         $t->assertTrue('decision_boundary.php -> ok=true', $res['body']['ok'] ?? false);
+        $t->assertTrue('decision_boundary.php -> сравнение моделей доступно', $res['body']['comparison_available'] ?? false);
+        $t->assertTrue('Каждая точка сетки содержит MLP и Softmax', isset($res['body']['grid'][0]['models']['mlp'], $res['body']['grid'][0]['models']['softmax']));
+    }
+
+    private function testModelInsightsAndQuality(TestReporter $t): void
+    {
+        $insight = $this->server->get('/api/model_insights.php?distance_km=382.4&stops=3&priority=eco&model=softmax');
+        $t->assertEquals('GET /api/model_insights.php -> 200', 200, $insight['status']);
+        $t->assertTrue('model_insights.php -> ok=true', $insight['body']['ok'] ?? false);
+        $t->assertEquals('model_insights.php уважает выбранную модель', 'softmax', $insight['body']['insight']['active_model'] ?? null);
+        $t->assertEquals('model_insights.php возвращает три ранжированных варианта', 3, count($insight['body']['insight']['ranking']['options'] ?? []));
+        $t->assertTrue('model_insights.php не обрабатывает адреса', !($insight['body']['insight']['privacy']['addresses_processed'] ?? true));
+
+        $badInsight = $this->server->get('/api/model_insights.php?distance_km=-1&stops=1');
+        $t->assertEquals('model_insights.php валидирует числовые признаки', 422, $badInsight['status']);
+
+        $quality = $this->server->get('/api/model_quality.php');
+        $t->assertEquals('GET /api/model_quality.php -> 200', 200, $quality['status']);
+        $t->assertTrue('model_quality.php -> ok=true', $quality['body']['ok'] ?? false);
+        $t->assertEquals('model_quality.php использует 120 holdout-примеров', 120, $quality['body']['report']['dataset']['holdout_samples'] ?? null);
+        $t->assertEquals('model_quality.php хранит финальный test отдельно', 60, $quality['body']['report']['dataset']['test_samples'] ?? null);
+        $t->assertTrue('model_quality.php содержит calibration bins', count($quality['body']['report']['models']['mlp']['metrics']['reliability'] ?? []) > 0);
+        $t->assertEquals('model_quality.php содержит снимки обучения', 6, count($quality['body']['report']['training']['models']['mlp']['snapshots'] ?? []));
     }
 
     private function testExplain(TestReporter $t): void
@@ -112,12 +137,58 @@ class ApiHttpTest
         $before = $this->server->get('/api/ab_stats.php');
         $t->assertEquals('GET /api/ab_stats.php -> 200', 200, $before['status']);
 
-        $fb = $this->server->post('/api/feedback.php', ['variant' => 'mlp', 'is_correct' => '1']);
+        $fb = $this->server->post('/api/feedback.php', ['variant' => 'mlp', 'is_correct' => '1', 'event_id' => 'http-ab-event-1']);
         $t->assertEquals('POST /api/feedback.php -> 200', 200, $fb['status']);
         $t->assertTrue('feedback.php -> ok=true', $fb['body']['ok'] ?? false);
 
-        $badVariant = $this->server->post('/api/feedback.php', ['variant' => 'gpt5', 'is_correct' => '1']);
+        $duplicate = $this->server->post('/api/feedback.php', ['variant' => 'mlp', 'is_correct' => '1', 'event_id' => 'http-ab-event-1']);
+        $t->assertTrue('feedback.php дедуплицирует повторный event_id', $duplicate['body']['duplicate'] ?? false);
+
+        $badVariant = $this->server->post('/api/feedback.php', ['variant' => 'gpt5', 'is_correct' => '1', 'event_id' => 'http-ab-event-2']);
         $t->assertEquals('feedback.php с неизвестным variant -> 422', 422, $badVariant['status']);
+    }
+
+    private function testSafeFeedbackQueue(TestReporter $t): void
+    {
+        $runtimeWeights = __DIR__ . '/../../var/mlp_weights.json';
+        $beforeHash = is_file($runtimeWeights) ? hash_file('sha256', $runtimeWeights) : null;
+        $learn = $this->server->post('/api/learn.php', [
+            'distance_km' => '382.4',
+            'stops' => '3',
+            'correct_label' => 'bus',
+            'model_variant' => 'mlp',
+            'event_id' => 'http-correction-event-1',
+        ]);
+        $afterHash = is_file($runtimeWeights) ? hash_file('sha256', $runtimeWeights) : null;
+
+        $t->assertEquals('POST /api/learn.php -> 200', 200, $learn['status']);
+        $t->assertTrue('learn.php ставит исправление в очередь', $learn['body']['queued'] ?? false);
+        $t->assertTrue('learn.php не применяет единичное исправление к production', !($learn['body']['applied'] ?? true));
+        $t->assertEquals('learn.php не изменяет файл активных весов', $beforeHash, $afterHash);
+
+        $softmaxCorrection = $this->server->post('/api/learn.php', [
+            'distance_km' => '300',
+            'stops' => '6',
+            'correct_label' => 'bus',
+            'model_variant' => 'softmax',
+            'event_id' => 'http-correction-event-softmax',
+        ]);
+        $t->assertEquals('Исправление проверяется против модели, которую видел пользователь', 200, $softmaxCorrection['status']);
+        $t->assertEquals('Очередь сохраняет версию Softmax-прогноза', 'softmax', $softmaxCorrection['body']['prediction']['model'] ?? null);
+
+        $notACorrection = $this->server->post('/api/learn.php', [
+            'distance_km' => '382.4',
+            'stops' => '3',
+            'correct_label' => 'car',
+            'model_variant' => 'mlp',
+            'event_id' => 'http-correction-event-2',
+        ]);
+        $t->assertEquals('learn.php не дублирует подтверждение как исправление', 422, $notACorrection['status']);
+        $t->assertEquals('learn.php возвращает NO_CORRECTION', 'NO_CORRECTION', $notACorrection['body']['error_code'] ?? null);
+
+        $reset = $this->server->post('/api/reset_model.php', []);
+        $t->assertEquals('Публичный reset_model.php закрыт', 403, $reset['status']);
+        $t->assertEquals('reset_model.php требует admin token', 'ADMIN_REQUIRED', $reset['body']['error_code'] ?? null);
     }
 
     private function testAssistantFallback(TestReporter $t): void

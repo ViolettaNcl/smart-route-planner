@@ -38,9 +38,15 @@ class SoftmaxClassifier implements ClassifierInterface
     /**
      * @param array<int, array{0: float, 1: float}> $features Массив [x1, x2] на каждый пример
      * @param string[] $labels Метка класса на каждый пример (тот же порядок, что и $features)
+     * @param (callable(int, float, self): void)|null $observer Receives reproducible checkpoints after each recorded epoch.
      */
-    public function train(array $features, array $labels, float $learningRate = 0.1, int $epochs = 2000): array
-    {
+    public function train(
+        array $features,
+        array $labels,
+        float $learningRate = 0.1,
+        int $epochs = 2000,
+        ?callable $observer = null,
+    ): array {
         $n = count($features);
         $lossHistory = [];
 
@@ -76,7 +82,11 @@ class SoftmaxClassifier implements ClassifierInterface
             }
 
             if ($epoch % 100 === 0 || $epoch === $epochs - 1) {
-                $lossHistory[$epoch] = round($totalLoss / $n, 4);
+                $loss = round($totalLoss / $n, 4);
+                $lossHistory[$epoch] = $loss;
+                if ($observer !== null) {
+                    $observer($epoch, $loss, $this);
+                }
             }
         }
 

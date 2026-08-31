@@ -36,6 +36,8 @@ $endpoints = [
     'feedback',
     'health',
     'learn',
+    'model_insights',
+    'model_quality',
     'poi',
     'reset_model',
     'route',
