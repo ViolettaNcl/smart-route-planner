@@ -16,7 +16,10 @@ final class ModelRegistry
         }
     }
 
-    /** @param array<string, mixed> $weights @param array<string, mixed> $metrics */
+    /**
+     * @param array<string, mixed> $weights
+     * @param array<string, mixed> $metrics
+     */
     public function promote(array $weights, array $metrics, string $activeWeightsPath): string
     {
         $encoded = json_encode($weights, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

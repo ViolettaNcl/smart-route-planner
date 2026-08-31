@@ -51,7 +51,8 @@ interface ClassifierInterface
      * реально формируют итоговое решение. У MLP — активации скрытого слоя
      * и их вклад в счёт класса; у Softmax — вклад каждого входного признака.
      *
-     * @return array{probs: array<string, float>, predicted: string, contributions: array<string, float>}
+     * @return array{probs: array<string, float>, predicted: string,
+     *     contributions: array<string, float>, hidden_activations?: float[]}
      */
     public function explain(float $x1, float $x2): array;
 }

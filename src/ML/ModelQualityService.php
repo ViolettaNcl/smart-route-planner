@@ -146,7 +146,10 @@ final class ModelQualityService
         ];
     }
 
-    /** @param array<int, array{distance: float, stops: int, label: string}> $rows @return array{0: array<int, array{0: float, 1: float}>, 1: string[]} */
+    /**
+     * @param array<int, array{distance: float, stops: int, label: string}> $rows
+     * @return array{0: array<int, array{0: float, 1: float}>, 1: string[]}
+     */
     private function encodeRows(array $rows): array
     {
         $features = [];
