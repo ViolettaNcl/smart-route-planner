@@ -27,6 +27,8 @@ class TransportPredictor
 
     private string $modelType;
 
+    private string $modelVersion;
+
     public function __construct(string $mlpWeightsPath, ?string $softmaxWeightsPath = null, ?string $forceVariant = null)
     {
         // A/B-тест (см. App\ML\ABTestStats): фронтенд может явно запросить
@@ -37,6 +39,7 @@ class TransportPredictor
             $this->model = new SoftmaxClassifier(Dataset::CLASSES);
             $this->model->setWeights($weights);
             $this->modelType = 'softmax';
+            $this->modelVersion = $this->versionFor($softmaxWeightsPath, 'softmax');
 
             return;
         }
@@ -46,6 +49,7 @@ class TransportPredictor
             $this->model = new MLPClassifier(Dataset::CLASSES);
             $this->model->setWeights($weights);
             $this->modelType = 'mlp';
+            $this->modelVersion = $this->versionFor($mlpWeightsPath, 'mlp');
 
             return;
         }
@@ -55,6 +59,7 @@ class TransportPredictor
             $this->model = new SoftmaxClassifier(Dataset::CLASSES);
             $this->model->setWeights($weights);
             $this->modelType = 'softmax';
+            $this->modelVersion = $this->versionFor($softmaxWeightsPath, 'softmax');
 
             return;
         }
@@ -66,7 +71,9 @@ class TransportPredictor
     }
 
     /**
-     * @return array{mode: string, mode_ru: string, confidence: float, probabilities: array<string, float>, model: string}
+     * @return array{mode: string, mode_ru: string, confidence: float,
+     *               probabilities: array<string, float>, model: string,
+     *               model_version: string, margin: float, certainty: string}
      */
     public function predict(float $distanceKm, int $stopsCount): array
     {
@@ -76,6 +83,8 @@ class TransportPredictor
         $probs = $this->model->softmax($x1, $x2);
         arsort($probs);
         $best = array_key_first($probs);
+        $ranked = array_values($probs);
+        $margin = (($ranked[0] ?? 0.0) - ($ranked[1] ?? 0.0)) * 100;
 
         return [
             'mode' => $best,
@@ -83,12 +92,24 @@ class TransportPredictor
             'confidence' => round($probs[$best] * 100, 1),
             'probabilities' => array_map(fn ($p) => round($p * 100, 1), $probs),
             'model' => $this->modelType, // 'mlp' или 'softmax' — какая модель реально ответила
+            'model_version' => $this->modelVersion,
+            'margin' => round($margin, 1),
+            'certainty' => match (true) {
+                $margin < 10 => 'ambiguous',
+                $margin < 25 => 'moderate',
+                default => 'stable',
+            },
         ];
     }
 
     public function modelType(): string
     {
         return $this->modelType;
+    }
+
+    public function modelVersion(): string
+    {
+        return $this->modelVersion;
     }
 
     public function model(): ClassifierInterface
@@ -107,25 +128,10 @@ class TransportPredictor
         return $this->model->explain($x1, $x2);
     }
 
-    /**
-     * "Живое" дообучение на одном примере — работает только для MLP (у него
-     * есть скрытый слой, есть чему учиться отдельно от полного батч-обучения).
-     * Для softmax-fallback возвращает false — там для честного обновления
-     * веса пришлось бы переобучать всю модель заново, это не мгновенная
-     * операция и не то, что ожидается от кнопки "поправить прогноз" в UI.
-     */
-    public function learnFromExample(float $distanceKm, int $stopsCount, string $correctLabel, string $weightsPath): bool
+    private function versionFor(string $weightsPath, string $modelType): string
     {
-        if (!($this->model instanceof MLPClassifier)) {
-            return false;
-        }
+        $hash = is_file($weightsPath) ? hash_file('sha256', $weightsPath) : false;
 
-        $x1 = FeatureEncoder::distanceFeature($distanceKm);
-        $x2 = FeatureEncoder::stopsFeature($stopsCount);
-
-        $this->model->trainOnExample($x1, $x2, $correctLabel);
-        file_put_contents($weightsPath, json_encode($this->model->getWeights(), JSON_PRETTY_PRINT));
-
-        return true;
+        return $modelType . '-' . substr($hash !== false ? $hash : 'unknown00000000', 0, 8);
     }
 }

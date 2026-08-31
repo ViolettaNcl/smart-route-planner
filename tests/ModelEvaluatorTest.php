@@ -99,6 +99,19 @@ class ModelEvaluatorTest
         // macro_f1 должен быть строго между 0 и 1 для неидеальной модели
         $t->assertTrue('macro_f1 в диапазоне (0, 1)', $result['macro_f1'] > 0 && $result['macro_f1'] < 1);
 
+        $probabilityResult = $evaluator->evaluateProbabilities(
+            new StubClassifier($predictions),
+            $features,
+            $labels,
+            $classes,
+            5
+        );
+        $t->assertTrue('Log loss рассчитан и неотрицателен', $probabilityResult['log_loss'] >= 0);
+        $t->assertTrue('Multiclass Brier score рассчитан и неотрицателен', $probabilityResult['brier_score'] >= 0);
+        $t->assertTrue('ECE лежит в [0,1]', $probabilityResult['expected_calibration_error'] >= 0 && $probabilityResult['expected_calibration_error'] <= 1);
+        $t->assertTrue('Reliability diagram содержит непустые bins', count($probabilityResult['reliability']) > 0);
+        $t->assertEquals('Калибровка рассчитана для каждого класса', 3, count($probabilityResult['calibration_by_class']));
+
         $this->testKFold($t, $evaluator);
     }
 

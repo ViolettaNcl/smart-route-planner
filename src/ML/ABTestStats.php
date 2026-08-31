@@ -19,20 +19,31 @@ class ABTestStats
     {
     }
 
-    public function record(string $variant, bool $isCorrect): void
+    public function record(string $variant, bool $isCorrect, ?string $eventId = null): bool
     {
         $variant = $variant === 'softmax' ? 'softmax' : 'mlp';
 
         $fp = fopen($this->filePath, 'c+');
         if ($fp === false) {
-            return;
+            return false;
         }
 
         flock($fp, LOCK_EX);
         $raw = stream_get_contents($fp);
-        $stats = json_decode((string) $raw, true) ?: $this->emptyStats();
+        $stats = $this->decodeState((string) $raw);
+        $eventHash = $eventId !== null && trim($eventId) !== '' ? hash('sha256', trim($eventId)) : null;
+        if ($eventHash !== null && in_array($eventHash, $stats['_seen'], true)) {
+            flock($fp, LOCK_UN);
+            fclose($fp);
+
+            return false;
+        }
 
         $stats[$variant][$isCorrect ? 'correct' : 'incorrect']++;
+        if ($eventHash !== null) {
+            $stats['_seen'][] = $eventHash;
+            $stats['_seen'] = array_slice($stats['_seen'], -2000);
+        }
 
         ftruncate($fp, 0);
         rewind($fp);
@@ -40,34 +51,86 @@ class ABTestStats
         fflush($fp);
         flock($fp, LOCK_UN);
         fclose($fp);
+
+        return true;
     }
 
-    /**
-     * @return array<string, array{correct: int, incorrect: int, accuracy: ?float}>
-     */
+    /** @return array<string, array<string, mixed>> */
     public function getStats(): array
     {
         if (!is_file($this->filePath)) {
             $stats = $this->emptyStats();
         } else {
-            $stats = json_decode((string) file_get_contents($this->filePath), true) ?: $this->emptyStats();
+            $stats = $this->decodeState((string) file_get_contents($this->filePath));
         }
 
-        foreach ($stats as $variant => $counts) {
+        foreach (['mlp', 'softmax'] as $variant) {
+            $counts = $stats[$variant] ?? ['correct' => 0, 'incorrect' => 0];
             $total = $counts['correct'] + $counts['incorrect'];
             $stats[$variant]['accuracy'] = $total > 0 ? round($counts['correct'] / $total * 100, 1) : null;
             $stats[$variant]['total'] = $total;
+            [$low, $high] = $this->wilsonInterval($counts['correct'], $total);
+            $stats[$variant]['confidence_interval'] = [
+                'low' => $low,
+                'high' => $high,
+                'level' => 0.95,
+            ];
+            $stats[$variant]['result_ready'] = $total >= 30;
         }
+
+        unset($stats['_seen']);
 
         return $stats;
     }
 
-    /** @return array<string, array{correct: int, incorrect: int}> */
+    /** @return array{mlp: array{correct: int, incorrect: int}, softmax: array{correct: int, incorrect: int}, _seen: string[]} */
     private function emptyStats(): array
     {
         return [
             'mlp' => ['correct' => 0, 'incorrect' => 0],
             'softmax' => ['correct' => 0, 'incorrect' => 0],
+            '_seen' => [],
         ];
+    }
+
+    /** @return array{mlp: array{correct: int, incorrect: int}, softmax: array{correct: int, incorrect: int}, _seen: string[]} */
+    private function decodeState(string $raw): array
+    {
+        $decoded = json_decode($raw, true);
+        if (!is_array($decoded)) {
+            return $this->emptyStats();
+        }
+
+        $state = $this->emptyStats();
+        foreach (['mlp', 'softmax'] as $variant) {
+            $counts = is_array($decoded[$variant] ?? null) ? $decoded[$variant] : [];
+            $state[$variant]['correct'] = max(0, (int) ($counts['correct'] ?? 0));
+            $state[$variant]['incorrect'] = max(0, (int) ($counts['incorrect'] ?? 0));
+        }
+        if (is_array($decoded['_seen'] ?? null)) {
+            foreach ($decoded['_seen'] as $seenValue) {
+                if (is_string($seenValue) && preg_match('/^[a-f0-9]{64}$/', $seenValue) === 1) {
+                    $state['_seen'][] = $seenValue;
+                }
+            }
+        }
+
+        return $state;
+    }
+
+    /** @return array{0: ?float, 1: ?float} */
+    private function wilsonInterval(int $successes, int $total): array
+    {
+        if ($total === 0) {
+            return [null, null];
+        }
+
+        $z = 1.959963984540054;
+        $p = $successes / $total;
+        $denominator = 1 + ($z ** 2 / $total);
+        $centre = ($p + ($z ** 2 / (2 * $total))) / $denominator;
+        $margin = ($z / $denominator) * sqrt(($p * (1 - $p) / $total) + ($z ** 2 / (4 * $total ** 2)));
+
+        return [round(max(0.0, $centre - $margin) * 100, 1), round(min(1.0, $centre + $margin) * 100, 1)];
     }
 }

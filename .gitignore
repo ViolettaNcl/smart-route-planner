@@ -17,7 +17,10 @@ config.local.php
 /var/ratelimit/*
 /var/ab_stats.json
 /var/app.log
+/var/ml_feedback.ndjson
+/var/feedback_archive/
 /var/mlp_weights.json
+/var/model_versions/
 !/var/geocache/.gitkeep
 !/var/ratelimit/.gitkeep
 

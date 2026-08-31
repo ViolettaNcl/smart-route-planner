@@ -9,6 +9,8 @@ require __DIR__ . '/RouteOptimizerTest.php';
 require __DIR__ . '/SoftmaxClassifierTest.php';
 require __DIR__ . '/MLPClassifierTest.php';
 require __DIR__ . '/ModelEvaluatorTest.php';
+require __DIR__ . '/ModelInsightServiceTest.php';
+require __DIR__ . '/FeedbackStoreTest.php';
 require __DIR__ . '/TravelTimeEstimatorTest.php';
 require __DIR__ . '/CostEstimatorTest.php';
 require __DIR__ . '/EmissionsEstimatorTest.php';
@@ -22,12 +24,14 @@ require __DIR__ . '/Http/ApiHttpTest.php';
 use Tests\ABTestStatsTest;
 use Tests\CostEstimatorTest;
 use Tests\EmissionsEstimatorTest;
+use Tests\FeedbackStoreTest;
 use Tests\HaversineCalculatorTest;
 use Tests\Http\ApiHttpTest;
 use Tests\Http\HttpTestServer;
 use Tests\KMeansDaySplitterTest;
 use Tests\MLPClassifierTest;
 use Tests\ModelEvaluatorTest;
+use Tests\ModelInsightServiceTest;
 use Tests\RateLimiterTest;
 use Tests\RouteOptimizerTest;
 use Tests\RoutePlannerTest;
@@ -51,6 +55,10 @@ echo "\nMLPClassifier:\n";
 
 echo "\nModelEvaluator (confusion matrix, precision/recall/F1, k-fold):\n";
 (new ModelEvaluatorTest())->run($reporter);
+
+echo "\nModel Insights, quality report and safe feedback:\n";
+(new ModelInsightServiceTest())->run($reporter);
+(new FeedbackStoreTest())->run($reporter);
 
 echo "\nTravelTimeEstimator:\n";
 (new TravelTimeEstimatorTest())->run($reporter);
@@ -91,6 +99,7 @@ try {
         @unlink($file);
     }
     @unlink(__DIR__ . '/../var/ab_stats.json');
+    @unlink(__DIR__ . '/../var/ml_feedback.ndjson');
 }
 
 $summary = $reporter->summary();

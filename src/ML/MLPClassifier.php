@@ -128,10 +128,16 @@ class MLPClassifier implements ClassifierInterface
     /**
      * @param array<int, array{0: float, 1: float}> $features
      * @param string[] $labels
+     * @param (callable(int, float, self): void)|null $observer Receives reproducible checkpoints after each recorded epoch.
      * @return array<int, float> история потерь (кросс-энтропия) по эпохам
      */
-    public function train(array $features, array $labels, float $learningRate = 0.5, int $epochs = 3000): array
-    {
+    public function train(
+        array $features,
+        array $labels,
+        float $learningRate = 0.5,
+        int $epochs = 3000,
+        ?callable $observer = null,
+    ): array {
         $n = count($features);
         $lossHistory = [];
 
@@ -199,52 +205,15 @@ class MLPClassifier implements ClassifierInterface
             }
 
             if ($epoch % 100 === 0 || $epoch === $epochs - 1) {
-                $lossHistory[$epoch] = round($totalLoss / $n, 4);
+                $loss = round($totalLoss / $n, 4);
+                $lossHistory[$epoch] = $loss;
+                if ($observer !== null) {
+                    $observer($epoch, $loss, $this);
+                }
             }
         }
 
         return $lossHistory;
-    }
-
-    /**
-     * Один шаг SGD на ОДНОМ примере (в отличие от train(), который усредняет
-     * градиент по всей выборке). Используется для "живого" дообучения:
-     * пользователь в интерфейсе поправляет предсказание модели ("на самом деле
-     * это bus, а не car") — и веса обновляются немедленно, без переобучения с
-     * нуля. Та же математика backprop, что и в train(), просто на 1 примере
-     * и с шагом обновления сразу после него (а не в конце эпохи).
-     */
-    public function trainOnExample(float $x1, float $x2, string $trueClass, float $learningRate = 0.3): void
-    {
-        [$a1, $probs] = $this->forward($x1, $x2);
-
-        $dz2 = [];
-        foreach ($this->classes as $class) {
-            $target = ($class === $trueClass) ? 1.0 : 0.0;
-            $dz2[$class] = $probs[$class] - $target;
-        }
-
-        // Скрытый слой: та же цепочка градиентов, что в train(), но применяем
-        // обновление сразу (learningRate обычно берут поменьше, чем при батч-
-        // обучении, чтобы один пример не "перекосил" уже обученную модель).
-        for ($i = 0; $i < $this->hiddenSize; $i++) {
-            $da1 = 0.0;
-            foreach ($this->classes as $class) {
-                $da1 += $this->w2[$class][$i] * $dz2[$class];
-            }
-            $dz1 = $da1 * (1 - $a1[$i] * $a1[$i]);
-
-            $this->w1[$i][0] -= $learningRate * $dz1 * $x1;
-            $this->w1[$i][1] -= $learningRate * $dz1 * $x2;
-            $this->b1[$i] -= $learningRate * $dz1;
-        }
-
-        foreach ($this->classes as $class) {
-            for ($i = 0; $i < $this->hiddenSize; $i++) {
-                $this->w2[$class][$i] -= $learningRate * $dz2[$class] * $a1[$i];
-            }
-            $this->b2[$class] -= $learningRate * $dz2[$class];
-        }
     }
 
     /**
