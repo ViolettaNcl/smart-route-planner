@@ -118,17 +118,18 @@ Useful when:
    an API key, an offline rule-based fallback runs instead — the UI
    honestly labels which one produced the text.
 
-### 10. A/B testing and live model fine-tuning
+### 10. A/B testing, explainability, and safe feedback
 
 1. Each visit is randomly assigned a model (MLP or Softmax) for the whole
    session; after a route is calculated, the user can flag 👍/👎 on whether
    it guessed correctly — statistics for both models accumulate and are
    visible directly in the UI (decision-boundary chart → A/B test).
-2. The user can correct the model's prediction ("this is actually a bus, not
-   a car") — the server runs one fine-tuning step (MLP only) and saves the
-   updated weights; a separate button resets the model to its originally
-   trained state. This is a demo mechanic: weights are shared across all
-   site visitors, not isolated per user.
+2. ML Lab shows all class probabilities, local feature influence, the nearest
+   decision change, MLP/softmax comparison, similar examples, test metrics,
+   calibration, a Model Card, and reproducible training snapshots.
+3. A correction only enters an anonymous queue. A candidate is trained in a
+   reviewed batch; promotion requires the holdout gate to pass and preserves
+   rollback. The public UI exposes no production-weight mutation or reset.
 
 ### 11. Localization and installation as an app
 
@@ -148,7 +149,7 @@ Useful when:
 - **UI responsiveness**: the calculation and every additional feature run
   via `fetch`, with no page reloads.
 - **Overload protection**: a custom rate limiter (token bucket) throttles
-  requests to the free external APIs and the live-learning demo endpoints,
+  requests to the free external APIs and feedback endpoints,
   preventing a single client from exhausting the shared limit for everyone.
 
 ## Delivered Improvements (from the original roadmap)
@@ -167,7 +168,7 @@ Useful when:
 - ✅ Weather and points of interest along the route — done (Open-Meteo,
   Overpass).
 - ✅ AI day planner (K-Means) and AI trip note (LLM/fallback) — done.
-- ✅ Production A/B testing of models and live fine-tuning — done.
+- ✅ Production A/B testing, ML Lab 2.0, and a safe batch-review pipeline — done.
 - ✅ UI localization (RU/EN) and PWA installability — done.
 - ✅ Local history, favourites, and GeoJSON/GPX/KML export — implemented
   without uploading history; cross-device sync still requires accounts/data storage.
@@ -175,8 +176,9 @@ Useful when:
 ## Technical Constraints
 
 - The application runs without a database: mutable server-side state is the
-  geocoding file cache, rate-limiter state, A/B-test statistics, and model
-  weights after live fine-tuning.
+  geocoding file cache, rate-limiter state, aggregate A/B statistics, and an
+  anonymous correction queue. The queue is ephemeral on Vercel; durable
+  collection would require persistent storage.
 - Route history/favourites are stored in this browser's `localStorage` and
   are not synchronized between devices.
 - Weather, points of interest, and the AI note depend on the availability of

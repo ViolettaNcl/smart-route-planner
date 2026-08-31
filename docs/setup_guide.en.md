@@ -64,8 +64,9 @@ Open `http://localhost:8080` (the port is set in `.env`, see `PORT`).
 
 The trained model already ships in the repo — no need to retrain before the
 first run. Changes under `var/` (the geocoding cache, rate-limiter state,
-model weights after live fine-tuning) survive `docker compose restart` and
-image rebuilds, thanks to the volume defined in `docker-compose.yml`.
+A/B statistics, correction queue, and CLI model registry) survive
+`docker compose restart` and image rebuilds, thanks to the volume defined in
+`docker-compose.yml`.
 
 **Deploying the same image to a VPS:** copy the repository to the server (or
 set up `git pull` + `docker compose up --build -d` via CI/CD), and put
@@ -88,8 +89,9 @@ If a static `AI_GATEWAY_API_KEY` is preferred, store it only in Project
 Settings → Environment Variables and never commit it to GitHub.
 
 Vercel Functions use ephemeral storage. The app automatically redirects its
-cache, rate limiter, logs, A/B stats, and live-learning weights to `/tmp`;
-these values may reset after a cold start or a new deployment.
+cache, rate limiter, logs, A/B stats, and correction queue to `/tmp`; these
+values may reset after a cold start or a new deployment. Public requests
+never mutate the model weights included in the deployment.
 
 ## Verifying the setup
 
@@ -97,8 +99,8 @@ these values may reset after a cold start or a new deployment.
 php tests/run.php
 ```
 
-Should print `Passed: 132, failed: 0` (the test count may grow in future
-versions).
+The final line should contain `failed: 0`; the number of passing checks grows
+with the feature set.
 
 ## Optional — AI trip assistant with a real LLM
 

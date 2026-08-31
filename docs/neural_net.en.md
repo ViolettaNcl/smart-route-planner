@@ -92,17 +92,18 @@ for each epoch:
     weights -= learning_rate * gradient / n_examples
 ```
 
-Run with `php bin/train_model.php`. The script splits the data into training
-(80%) and validation (20%) sets, trains the model only on the training
-split, and honestly reports accuracy on the validation split — data the
-model never saw.
+Run with `php bin/train_model.php`. The script keeps 80% for training and
+splits the final 20% evenly into validation and a final test partition
+(80/10/10). Test data participates in neither training nor candidate
+selection and backs the public quality report.
 
 ## Metrics (current run)
 
 | Set | Accuracy |
 |---|---|
 | Training | ~90% |
-| Validation (unseen by the model) | ~93% |
+| Validation (60 examples) | 90% |
+| Test (60 examples, final evaluation) | 90% |
 
 Since 8% of the dataset's labels are noised, the theoretical accuracy
 ceiling is around 92–95%: the model can't (and shouldn't) correctly predict
@@ -165,9 +166,9 @@ This isn't a bug or an undertrained network — it's expected for *this
 specific* problem: the ground-truth labeling rule in `Dataset` (distance
 thresholds + a stop-count adjustment) is itself close to piecewise-linear,
 and the 8% noised labels set an accuracy ceiling that washes out the small
-theoretical advantage of a non-linear model. On a validation set of 120
-examples (20% of 600), a 1-point-percentage difference is literally one
-example — statistical noise, not signal.
+theoretical advantage of a non-linear model. Each validation/test partition
+contains only 60 examples; one mistake moves accuracy by roughly 1.7 points,
+so a small gap remains statistical noise rather than evidence of superiority.
 
 **The practical takeaway** worth stating in an interview: the MLP isn't here
 because "neural net == more accuracy" — it's here because (a) it demonstrates
@@ -200,30 +201,30 @@ per-class precision/recall/F1. Example from a real run (seed 42):
 ```
 --- MLP: confusion matrix (rows = true class, columns = predicted) ---
               walk     car     bus
-  walk          25       0       1
-  car            1      49       2
-  bus            0       8      34
+  walk          11       0       1
+  car            0      22       1
+  bus            0       4      21
 
 --- MLP: precision / recall / F1 by class ---
   Class  Precision     Recall         F1    Support
-  walk        0.962      0.962      0.962         26
-  car          0.86      0.942      0.899         52
-  bus         0.919       0.81      0.861         42
+  walk          1.0      0.917      0.957         12
+  car         0.846      0.957      0.898         23
+  bus         0.913       0.84      0.875         25
 
-  Accuracy: 0.9   Macro-F1: 0.907
+  Accuracy: 0.9   Macro-F1: 0.910
 ```
 
-What this shows **beyond** a single accuracy number: `bus` recall (0.81) is
+What this shows **beyond** a single accuracy number: `bus` recall (0.84) is
 noticeably lower than `walk`/`car` — the model more often confuses long
-routes with car trips (the confusion matrix shows exactly that: 8 `bus`
+routes with car trips (the confusion matrix shows exactly that: 4 `bus`
 examples predicted as `car`) than the other way around. That's an honest
 finding accuracy alone hides — an overall accuracy of 0.9 sounds even and
 doesn't hint at this imbalance.
 
-**Interestingly, on macro-F1 (0.907) the MLP slightly trails Softmax
-(0.912) on this particular run** — the same conclusion as in the accuracy
+**Interestingly, on macro-F1 (0.910) the MLP slightly trails Softmax
+(0.923) on the final test** — the same conclusion as in the accuracy
 section above, just via a stricter metric: the gap favoring the linear
-model isn't statistically meaningful (support for the `bus` class is only 42
+model isn't statistically meaningful (support for the `bus` class is only 25
 examples), but the fact that a more complex model isn't guaranteed to win
 even on F1, not just accuracy, is an important, honest result — not
 something to bury in favor of a flashier neural-network narrative.
@@ -257,6 +258,39 @@ decision map, showing where the model is "confident" versus where it's
 working through sparse or noisy regions. The model toggle (MLP/softmax) in
 the UI is the clearest way to see the difference (or lack thereof) between
 the linear and non-linear boundary live.
+
+### ML Lab 2.0: explaining one prediction
+
+`GET /api/model_insights.php` accepts only anonymous numeric
+`distance_km` and `stops` features. One response includes both MLP and
+Softmax, every class score, the winner margin, local feature sensitivity,
+the nearest counterfactual, five similar examples, exact hidden-layer
+activations, and a transparent time/cost/CO₂ ranking. Local sensitivity
+describes the model computation; it is not a causal claim.
+
+`GET /api/model_quality.php` computes a test-set confusion matrix, accuracy,
+precision/recall/F1, macro-F1, log loss, multiclass Brier score, ECE, and
+reliability bins. It also returns the Model Card, train/validation/test
+balance, pending-correction count, and the reproducible training report.
+
+### Training curves and boundary snapshots
+
+`bin/train_model.php` writes `src/ML/training_report.json` alongside the
+weights: both loss curves and six compact MLP boundary snapshots (epochs 0,
+100, 300, 700, 1100, 1499). The report records model hashes; health-check
+fails when snapshots and checked-in weights diverge. The UI respects
+`prefers-reduced-motion` and does not auto-play in that mode.
+
+### Safe feedback and model releases
+
+`POST /api/learn.php` no longer performs SGD inside a public request. It
+deduplicates an anonymous event and appends it to a queue without addresses
+or coordinates. An operator lists events with
+`php bin/review_feedback.php --list`, builds an allow-list of hashed
+`event_id` values, and runs a dry-run with `--approved=...`. `--promote`
+is accepted only after macro-F1, log loss, and every per-class F1 regression
+guard pass; used events are archived, the model is versioned, and
+`php bin/model_admin.php rollback mlp-xxxxxxxx` provides rollback.
 
 ### Known limitations of the model
 
