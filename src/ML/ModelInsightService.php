@@ -32,8 +32,7 @@ final class ModelInsightService
         int $stops,
         string $priority = 'balanced',
         string $activeModel = 'mlp'
-    ): array
-    {
+    ): array {
         $distanceKm = max(0.2, min(1500.0, $distanceKm));
         $stops = max(2, min(12, $stops));
         $priority = in_array($priority, ['balanced', 'fast', 'cheap', 'eco'], true)
