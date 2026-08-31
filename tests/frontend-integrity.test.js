@@ -38,8 +38,11 @@ const ariaReferences = [...html.matchAll(/\b(?:aria-labelledby|aria-controls|for
 const missingAriaTargets = [...new Set(ariaReferences.filter((id) => !ids.includes(id)))];
 if (missingAriaTargets.length) fail('Missing ARIA targets: ' + missingAriaTargets.join(', '));
 
-const javascriptIds = [...javascript.matchAll(/getElementById\(['"]([^'"]+)['"]\)/g)]
-    .map((match) => match[1]);
+const javascriptIds = [
+    ...javascript.matchAll(/getElementById\(['"]([^'"]+)['"]\)/g),
+    ...javascript.matchAll(/\bbyId\(['"]([^'"]+)['"]\)/g),
+    ...javascript.matchAll(/querySelector(?:All)?\(['"]#([a-zA-Z0-9_-]+)/g),
+].map((match) => match[1]);
 const missingJavascriptTargets = [...new Set(javascriptIds.filter((id) => !ids.includes(id)))];
 if (missingJavascriptTargets.length) fail('Missing JavaScript DOM targets: ' + missingJavascriptTargets.join(', '));
 

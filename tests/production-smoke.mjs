@@ -51,10 +51,17 @@ const health = await waitForExpectedDeployment();
 assert.equal(health.capabilities?.structured_stops, true);
 assert.equal(health.capabilities?.route_alternatives, true);
 assert.equal(health.capabilities?.navigation_steps, true);
+assert.equal(health.capabilities?.model_insights, true);
+assert.equal(health.capabilities?.model_quality_report, true);
+assert.equal(health.capabilities?.model_training_snapshots, true);
+assert.equal(health.capabilities?.safe_feedback_queue, true);
 
 const home = await fetchChecked('/?smoke=' + Date.now());
-assert.match(home.body, /assets\/js\/product\.js\?v=11/);
+assert.match(home.body, /assets\/js\/product\.js\?v=12/);
 assert.match(home.body, /id="route-stop-list"/);
+assert.match(home.body, /id="ml-prediction-title"/);
+assert.match(home.body, /id="ml-view-quality"/);
+assert.match(home.body, /id="ml-view-training"/);
 assert.match(home.body, /rel="canonical"/);
 assert.match(home.body, /<meta name="robots" content="index,follow/);
 const robotsHeader = String(home.response.headers.get('x-robots-tag') || '');
@@ -71,7 +78,27 @@ const sitemap = await fetchChecked('/sitemap.xml');
 assert.match(sitemap.body, /<urlset/);
 
 const serviceWorker = await fetchChecked('/service-worker.js?smoke=' + Date.now());
-assert.match(serviceWorker.body, /srp-shell-v11/);
+assert.match(serviceWorker.body, /srp-shell-v12/);
+
+// ML smoke requests contain anonymous numeric features only — no route labels,
+// addresses or coordinates are sent to model diagnostics.
+const insightResponse = await fetchChecked('/api/model_insights.php?distance_km=382.4&stops=3&model=mlp&priority=balanced');
+const insight = JSON.parse(insightResponse.body);
+assert.equal(insight.ok, true);
+assert.equal(insight.insight?.privacy?.anonymous_features_only, true);
+assert.equal(insight.insight?.privacy?.addresses_processed, false);
+assert.equal(insight.insight?.comparison?.models?.mlp?.model, 'mlp');
+
+const qualityResponse = await fetchChecked('/api/model_quality.php');
+const quality = JSON.parse(qualityResponse.body);
+assert.equal(quality.ok, true);
+assert.equal(quality.report?.dataset?.holdout_samples, 120);
+assert.equal(quality.report?.dataset?.test_samples, 60);
+assert.equal(quality.report?.training?.models?.mlp?.snapshots?.length, 6);
+assert.equal(quality.report?.training?.matches_active_model, true);
+assert.equal(quality.report?.cross_validation?.folds, 5);
+assert.equal(typeof quality.report?.models?.mlp?.metrics?.macro_f1, 'number');
+assert.equal(quality.report?.release_policy?.single_feedback_mutates_production, false);
 
 const stops = [
     { label: 'Berlin', lat: 52.520008, lon: 13.404954 },
