@@ -17,7 +17,7 @@ info:
     обновляемый OIDC-токен; локально можно задать `AI_GATEWAY_API_KEY`,
     `ANTHROPIC_API_KEY` или `OPENAI_API_KEY`. Без них работает честный
     rule-based fallback.
-  version: "2.0.0"
+  version: "3.0.0"
   license:
     name: MIT
     url: https://github.com/ViolettaNcl/smart-route-planner/blob/main/LICENSE
@@ -36,7 +36,7 @@ tags:
   - name: geodata
     description: Точки интереса, погода, автоподсказки
   - name: ml
-    description: Объяснимость модели, A/B-тест, живое дообучение
+    description: Объяснимость, качество, A/B-тест и безопасная очередь исправлений
   - name: ai
     description: AI-совет по поездке
   - name: ops
@@ -367,6 +367,7 @@ paths:
                   stops_slices: { type: array, items: { type: integer } }
                   grid: { type: array, items: { type: object } }
                   samples: { type: array, items: { type: object } }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /explain.php:
@@ -395,6 +396,91 @@ paths:
                   model: { type: string, enum: [mlp, softmax] }
                   explanation: { type: object }
         '422': { $ref: '#/components/responses/ValidationError' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /model_insights.php:
+    get:
+      tags: [ml]
+      summary: Персональное объяснение и сравнение моделей
+      description: >
+        Read-only анализ обезличенных числовых признаков: вероятности MLP и
+        Softmax, согласие моделей, локальное влияние, ближайшая смена класса,
+        похожие синтетические примеры, активации сети и прозрачный рейтинг
+        вариантов по времени, стоимости и CO2. Адреса и координаты не
+        принимаются и не обрабатываются.
+      parameters:
+        - name: distance_km
+          in: query
+          required: true
+          schema: { type: number, minimum: 0.2, maximum: 1500 }
+        - name: stops
+          in: query
+          required: true
+          schema: { type: integer, minimum: 2, maximum: 12 }
+        - name: model
+          in: query
+          schema: { type: string, enum: [mlp, softmax], default: mlp }
+        - name: priority
+          in: query
+          schema: { type: string, enum: [balanced, fast, cheap, eco], default: balanced }
+      responses:
+        '200':
+          description: Объяснение построено
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, insight]
+                properties:
+                  ok: { type: boolean, example: true }
+                  insight:
+                    type: object
+                    properties:
+                      input: { type: object }
+                      active_model: { type: string, enum: [mlp, softmax] }
+                      prediction: { type: object }
+                      comparison: { type: object }
+                      feature_influence: { type: array, items: { type: object } }
+                      counterfactuals: { type: array, items: { type: object } }
+                      nearest_examples: { type: array, items: { type: object } }
+                      ranking: { type: object }
+                      network: { type: object }
+                      privacy: { type: object }
+        '422': { $ref: '#/components/responses/ValidationError' }
+        '429': { $ref: '#/components/responses/RateLimited' }
+        '500': { $ref: '#/components/responses/InternalError' }
+
+  /model_quality.php:
+    get:
+      tags: [ml]
+      summary: Отчёт качества и Model Card
+      description: >
+        Воспроизводимая read-only оценка включённых в релиз весов на отдельных
+        validation/test-частях: confusion matrix, precision/recall/F1, log
+        loss, multiclass Brier score, calibration/ECE, loss-кривые и снимки
+        границы по эпохам. Результат кэшируется на 15 минут.
+      responses:
+        '200':
+          description: Отчёт построен
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [ok, report]
+                properties:
+                  ok: { type: boolean, example: true }
+                  report:
+                    type: object
+                    properties:
+                      generated_at: { type: string, format: date-time }
+                      dataset: { type: object }
+                      models: { type: object }
+                      training: { type: object }
+                      cross_validation: { type: object }
+                      model_card: { type: object }
+                      feedback: { type: object }
+                      release_policy: { type: object }
+        '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
   /ab_stats.php:
@@ -432,10 +518,15 @@ paths:
           application/x-www-form-urlencoded:
             schema:
               type: object
-              required: [variant, is_correct]
+              required: [variant, is_correct, event_id]
               properties:
                 variant: { type: string, enum: [mlp, softmax] }
-                is_correct: { type: string, enum: ['1', '0', 'true', 'false'] }
+                is_correct: { type: string, enum: ['1', '0'] }
+                event_id:
+                  type: string
+                  minLength: 4
+                  maxLength: 128
+                  description: Идентификатор route-события для дедупликации повторных голосов
       responses:
         '200':
           description: Отзыв сохранён, актуальная статистика возвращена
@@ -453,35 +544,43 @@ paths:
   /learn.php:
     post:
       tags: [ml]
-      summary: Одношаговое дообучение MLP на исправленном примере
+      summary: Поставить исправление модели в очередь
       description: >
-        Пользователь указал правильный transport вместо предсказанного —
-        сервер делает один шаг градиентного спуска и сохраняет обновлённые
-        веса. Работает только для MLP (у Softmax нет этого механизма в UI).
-        **Демо-механика**: веса общие для всех посетителей сайта, это не
-        изолированное состояние пользователя.
+        Пользователь указал правильный класс вместо текущего прогноза. Сервер
+        сохраняет только обезличенные числовые признаки и хэш `event_id` в
+        append-only очередь. Production-веса в HTTP-запросе не меняются:
+        promotion выполняется отдельно после ручного review, anomaly checks
+        и holdout release gate.
       requestBody:
         required: true
         content:
           application/x-www-form-urlencoded:
             schema:
               type: object
-              required: [distance_km, stops, correct_label]
+              required: [distance_km, stops, correct_label, model_variant, event_id]
               properties:
-                distance_km: { type: number }
-                stops: { type: integer }
+                distance_km: { type: number, minimum: 0.2, maximum: 1500 }
+                stops: { type: integer, minimum: 2, maximum: 12 }
                 correct_label: { type: string, enum: [walk, car, bus] }
+                model_variant:
+                  type: string
+                  enum: [mlp, softmax]
+                  description: Вариант, предсказание которого увидел пользователь
+                event_id: { type: string, minLength: 4, maxLength: 128 }
       responses:
         '200':
-          description: Шаг дообучения применён (или пропущен, если активна softmax-модель)
+          description: Исправление принято в очередь или дедуплицировано
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   ok: { type: boolean }
-                  applied: { type: boolean }
-                  note: { type: string, nullable: true }
+                  applied: { type: boolean, example: false }
+                  queued: { type: boolean, example: true }
+                  duplicate: { type: boolean }
+                  queue_size: { type: integer }
+                  release_policy: { type: string, example: batch_review_then_holdout_gate }
         '422': { $ref: '#/components/responses/ValidationError' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
@@ -489,8 +588,15 @@ paths:
   /reset_model.php:
     post:
       tags: [ml]
-      summary: Сбросить веса модели к изначально обученным
-      description: Отменяет эффект всех предыдущих вызовов `/learn.php`.
+      summary: Административно восстановить проверенный baseline
+      description: >
+        Защищённая операция, отсутствующая в публичном UI. Требует настроенной
+        переменной `APP_MODEL_ADMIN_TOKEN` и совпадающего заголовка.
+      parameters:
+        - name: X-Model-Admin-Token
+          in: header
+          required: true
+          schema: { type: string, format: password }
       responses:
         '200':
           description: Веса сброшены
@@ -500,6 +606,13 @@ paths:
                 type: object
                 properties:
                   ok: { type: boolean }
+                  model: { type: string }
+                  model_version: { type: string }
+        '403':
+          description: Admin token отсутствует, не настроен или не совпадает
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '429': { $ref: '#/components/responses/RateLimited' }
         '500': { $ref: '#/components/responses/InternalError' }
 
@@ -538,6 +651,7 @@ components:
           type: object
           properties:
             model_weights: { type: boolean }
+            model_training_report: { type: boolean }
             runtime_storage_writable: { type: boolean }
         providers: { type: object }
         capabilities: { type: object }

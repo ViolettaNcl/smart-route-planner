@@ -77,18 +77,23 @@ What this project is meant to demonstrate:
   layer (`tanh`), softmax output, forward and backward pass hand-written in
   PHP. Trained and honestly compared against a linear softmax-regression
   baseline (`bin/train_model.php` prints both accuracies side by side).
-- **Rigorous model evaluation** — confusion matrix, per-class precision /
-  recall / F1 (accuracy alone hides class imbalance), and 5-fold
-  cross-validation instead of a single random train/val split
+- **Rigorous model evaluation** — separate train/validation/test partitions,
+  confusion matrix, per-class precision/recall/F1, macro-F1, log loss,
+  multiclass Brier score, calibration/ECE, and 5-fold cross-validation
   (`App\ML\ModelEvaluator`).
 - **AI trip assistant** — after a route is calculated, an LLM through Vercel
   AI Gateway (OIDC on Vercel), Anthropic, or OpenAI writes a short human note: where to
   rest, whether an overnight stop makes sense on a long leg, what to watch
   for in the weather. Without a key it falls back to a rule-based offline
   generator — the UI honestly labels which one produced the text.
-- **Interactive decision-boundary chart** — a Chart.js visualization of how
-  the classifier splits the "distance × number of stops" feature space into
-  walk/car/bus, with an MLP ⇄ softmax toggle for a direct visual comparison.
+- **ML Lab 2.0** — a personalised explanation of the current prediction,
+  all class probabilities, winner margin, local feature sensitivity, nearest
+  counterfactual, similar examples, what-if controls, time/cost/CO₂ ranking,
+  and simultaneous MLP ⇄ Softmax comparison.
+- **Training audit and visualisation** — a filterable decision map with the
+  current route, calibration curve, Model Card, neural forward pass, loss
+  curves, and six reproducible decision-boundary snapshots. The checked-in
+  `src/ML/training_report.json` is tied to the model weights by hash.
 - **Day-by-day trip planner (K-Means)** — for long routes, a from-scratch
   K-Means implementation (Lloyd's algorithm) splits the trip into
   mileage-balanced driving days without reordering the cities. Unlike the
@@ -160,8 +165,14 @@ What this project is meant to demonstrate:
 - **Live MLP vs. softmax A/B test** — each visitor is randomly (50/50)
   assigned one of the two models for the whole session; after a route is
   calculated, the visitor can flag whether the prediction was right, and
-  aggregate accuracy for both models is tracked in `var/ab_stats.json` and
-  shown in the UI.
+  aggregate accuracy is deduplicated by event, tracked in `var/ab_stats.json`,
+  and shown with a 95% Wilson interval. No winner is declared before the
+  minimum sample size.
+- **Safe feedback pipeline** — a correction never mutates shared weights in
+  an HTTP request. It enters an anonymous append-only queue; the CLI release
+  flow requires a reviewed allow-list, rejects anomalous clusters, gates on
+  holdout macro-F1/log loss/per-class F1, versions the model, archives used
+  events, and supports rollback.
 - **Layered automated verification** — unit and HTTP tests, deterministic
   Playwright product-flow tests, and a scheduled post-deploy production smoke.
 
@@ -170,7 +181,7 @@ What this project is meant to demonstrate:
 - **Token-bucket rate limiter, written from scratch** — continuous token
   replenishment rather than a naive fixed-window counter (which has a
   well-known boundary exploit). Protects the free Nominatim/Overpass/
-  Open-Meteo quotas and the live-learning demo endpoints from abuse
+  Open-Meteo quotas, ML diagnostics, and feedback endpoints from abuse
   (`App\Http\RateLimiter`).
 - **HTTP integration tests, separate from unit tests** — `tests/Http/` boots
   a real `php -S` server and exercises the actual `api/*.php` endpoints over
@@ -257,7 +268,7 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | [`docs/neural_net.md`](docs/neural_net.md) ([EN](docs/neural_net.en.md)) | Model design, training, and evaluation metrics |
 | [`docs/business_analysis.md`](docs/business_analysis.md) ([EN](docs/business_analysis.en.md)) | Use cases and business logic |
 | [`docs/setup_guide.md`](docs/setup_guide.md) ([EN](docs/setup_guide.en.md)) | Installation: XAMPP, Docker, or the built-in PHP server |
-| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 3.0 spec for all 13 `api/*.php` endpoints |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 3.0 spec for all 15 `api/*.php` endpoints |
 
 ## Testing
 
@@ -334,7 +345,7 @@ end-to-end), plus deterministic browser and live-production flows. Runs automati
   respects the original route order (a day can't "jump" backward) — see the
   docblock on `App\ML\KMeansDaySplitter`.
 - Vercel Functions have ephemeral runtime storage. Geocoding cache, A/B stats,
-  rate-limit state, logs, and live-learning weights can reset after a cold
+  rate-limit state, logs, and pending feedback can reset after a cold
   start or deployment; core route calculation is unaffected.
 - The PWA splash-screen color (`manifest.webmanifest`, `theme_color` /
   `background_color`) is fixed to the dark theme — the in-app light/dark

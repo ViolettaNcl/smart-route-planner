@@ -9,16 +9,18 @@
 не выполняется — каждый класс только предоставляет методы, поэтому вся
 бизнес-логика (кроме HTTP-обвязки) покрыта тестами без поднятия веб-сервера.
 
-База данных не используется. Исходные веса модели хранятся в репозитории
-(`src/ML/model_weights.json`, `src/ML/mlp_weights.json`), а изменяемое
-состояние (кэш, rate limiter, A/B-статистика, логи и дообученные веса)
-проходит через `RuntimeStorage`: локально это `var/`, на Vercel — временный
-`/tmp`.
+База данных не используется. Исходные веса и воспроизводимый отчёт обучения
+хранятся в репозитории (`src/ML/model_weights.json`,
+`src/ML/mlp_weights.json`, `src/ML/training_report.json`), а изменяемое
+состояние (кэш, rate limiter, A/B-статистика, логи и очередь обезличенных
+исправлений) проходит через `RuntimeStorage`: локально это `var/`, на
+Vercel — временный `/tmp`.
 
 Проект вырос из простого расчёта маршрута в набор независимых фич,
 каждая — отдельный API-эндпоинт, который не блокирует и не ломает основной
 сценарий, если недоступен: AI-совет по поездке, погода, точки интереса,
-план по дням, карта решений модели, A/B-тест, живое дообучение.
+план по дням, объяснимый ML Lab, A/B-тест и безопасная очередь обратной
+связи.
 
 ## Структура файлов
 
@@ -28,7 +30,9 @@ composer.json                 # PSR-4 автозагрузка (опционал
 vercel.json                   # PHP 8.3 runtime и маршруты Vercel Functions
 api/index.php                 # Единый Vercel front controller для всех API-маршрутов
 bin/
-  train_model.php             # CLI: обучает MLP и Softmax, сохраняет веса и печатает точность обеих моделей
+  train_model.php             # CLI: обучает MLP/Softmax, сохраняет веса, метрики и снимки обучения
+  review_feedback.php         # CLI: review allow-list, anomaly checks, holdout gate и promotion кандидата
+  model_admin.php             # CLI: статус реестра версий и rollback
 public/
   index.php                   # Веб-интерфейс (форма, карта, все виджеты фич)
   manifest.webmanifest         # PWA-манифест (установка на телефон как приложение)
@@ -42,10 +46,12 @@ public/
     assistant.php                   # POST: AI-совет по поездке (LLM или rule-based fallback)
     decision_boundary.php            # GET: сетка предсказаний модели для визуализации границы решений
     explain.php                       # GET: разбор одного предсказания модели по числам ("почему такой транспорт")
+    model_insights.php                # GET: персональное объяснение, сравнение, контрфакты и рейтинг
+    model_quality.php                 # GET: test-метрики, калибровка, Model Card и снимки обучения
     ab_stats.php                      # GET: агрегированная статистика A/B-теста MLP vs Softmax
     feedback.php                      # POST: фиксирует "угадала ли модель" для варианта текущего визита
-    learn.php                          # POST: "живое" дообучение MLP на одном примере пользователя
-    reset_model.php                     # POST: сброс весов модели к изначально обученному состоянию
+    learn.php                          # POST: обезличенное исправление в очередь; production-веса не меняются
+    reset_model.php                    # POST: защищённый admin-token сброс к проверенному baseline
     health.php                           # GET: health-check для аптайм-мониторинга и Docker HEALTHCHECK
   assets/
     css/route.css
@@ -77,13 +83,18 @@ src/
     FeatureEncoder.php            # Общие преобразования признаков (train + inference)
     MLPClassifier.php              # Нейросеть (скрытый слой tanh + softmax-выход, backprop с нуля)
     SoftmaxClassifier.php          # Линейный baseline, обучение градиентным спуском
-    ModelEvaluator.php               # Confusion matrix, precision/recall/F1, k-fold кросс-валидация
+    ModelEvaluator.php               # Confusion matrix, F1, log loss, Brier, calibration, k-fold CV
     KMeansDaySplitter.php            # Unsupervised: K-Means (метод Ллойда), план маршрута по дням поездки
-    TransportPredictor.php          # Загружает веса (MLP, fallback Softmax), предсказывает, живое дообучение
+    TransportPredictor.php          # Загружает версионированные веса и выполняет read-only inference
     ABTestStats.php                  # Файловое хранилище счётчиков A/B-теста MLP vs Softmax (flock)
+    ModelInsightService.php          # Локальное влияние, counterfactual, похожие примеры, рейтинг вариантов
+    ModelQualityService.php          # Отдельные validation/test-метрики и Model Card
+    FeedbackStore.php                # Append-only очередь обезличенных исправлений и архив
+    ModelRegistry.php                # CLI-only promotion/rollback версий модели
     mlp_weights.json                  # Изначально обученные веса MLP (генерируются train_model.php)
     mlp_weights.trained.json           # Резервная копия/эталон весов MLP для api/reset_model.php
     model_weights.json                  # Веса Softmax-baseline
+    training_report.json                # Loss-кривые и снимки границы, связанные с весами по SHA-256
   AI/
     TripAssistantService.php      # AI-совет: Vercel AI Gateway / Anthropic / OpenAI / fallback
   Weather/
@@ -186,10 +197,12 @@ docker-compose.yml              # Локальный запуск / просто
 | `api/suggest.php` | Поиск через явно настроенный совместимый endpoint; с публичным Nominatim отвечает `submit_only` без autocomplete-запроса |
 | `api/decision_boundary.php` | Считает предсказание модели на регулярной сетке [дистанция × число точек] для визуализации границы решений на Chart.js |
 | `api/explain.php` | Разбирает одно конкретное предсказание модели по числам — "почему выбран именно этот транспорт" |
+| `api/model_insights.php` | Возвращает вероятности обеих моделей, локальное влияние признаков, ближайшую смену класса, похожие примеры, нейронные активации и прозрачный рейтинг транспорта |
+| `api/model_quality.php` | Возвращает отдельные validation/test-метрики, confusion matrix, F1, log loss, Brier, calibration, Model Card и снимки обучения |
 | `api/ab_stats.php` | Отдаёт агрегированную статистику A/B-теста MLP vs Softmax из `var/ab_stats.json` |
 | `api/feedback.php` | Фиксирует 👍/👎 — угадала ли модель для варианта, назначенного этому визиту |
-| `api/learn.php` | "Живое" дообучение: один шаг градиентного спуска MLP на примере, поправленном пользователем |
-| `api/reset_model.php` | Сбрасывает веса MLP к изначально обученному состоянию, отменяя эффект `learn.php` |
+| `api/learn.php` | Добавляет обезличенное исправление в append-only очередь; единичный HTTP-запрос никогда не меняет production-веса |
+| `api/reset_model.php` | Защищённая `X-Model-Admin-Token` административная операция восстановления baseline; отсутствует в публичном UI |
 | `api/health.php` | Health-check без обращения к внешним сервисам — для аптайм-мониторинга и Docker `HEALTHCHECK` |
 
 ## Шеринг маршрута без базы данных
@@ -210,17 +223,18 @@ legacy-ссылки `?r=<base64>` продолжают поддерживать�
 1. `Dataset::generate()` генерирует помеченные примеры (дистанция, число
    точек, метка класса) — см. `docs/neural_net.md` про честность этого
    датасета.
-2. Данные делятся на обучающую (80%) и валидационную (20%) выборки.
+2. Данные делятся на train/validation/test (80/10/10); test остаётся
+   нетронутым до финальной оценки.
 3. `MLPClassifier::train()` и `SoftmaxClassifier::train()` обучаются на
    одной и той же обучающей выборке — скрипт печатает точность обеих
-   моделей на валидационной выборке для честного сравнения.
+   моделей на validation и test для честного сравнения.
 4. `ModelEvaluator` строит confusion matrix, precision/recall/F1 по каждому
    классу и прогоняет k-fold кросс-валидацию для обеих моделей.
-5. Веса сохраняются в `src/ML/mlp_weights.json` (и копия в
-   `mlp_weights.trained.json` — эталон для `api/reset_model.php`) и
-   `src/ML/model_weights.json` — эти файлы читает `TransportPredictor` во
-   время обычной работы приложения (по умолчанию — MLP, с откатом на
-   Softmax, если файл весов MLP отсутствует или повреждён).
+5. Веса сохраняются в `src/ML/mlp_weights.json` (и административная копия в
+   `mlp_weights.trained.json`) и `src/ML/model_weights.json`; loss-кривые и
+   шесть снимков границы записываются в `training_report.json` с SHA-256
+   версий. Эти файлы читает `TransportPredictor` во время обычной работы
+   приложения (по умолчанию — MLP, с откатом на Softmax).
 
 ## Компоненты и их ответственность
 
@@ -240,7 +254,11 @@ legacy-ссылки `?r=<base64>` продолжают поддерживать�
 | `SoftmaxClassifier` | Обучение и инференс линейного baseline |
 | `ModelEvaluator` | Confusion matrix, precision/recall/F1 по классам, k-fold кросс-валидация |
 | `KMeansDaySplitter` | Unsupervised K-Means (метод Ллойда, 1D по кумулятивной дистанции) — план по дням, сохраняя порядок городов |
-| `TransportPredictor` | Загрузка весов, предсказание транспорта, живое дообучение и сброс модели |
+| `TransportPredictor` | Загрузка версионированных весов и read-only предсказание транспорта |
+| `ModelInsightService` | Персональное объяснение, чувствительность, counterfactual, похожие примеры и рейтинг |
+| `ModelQualityService` | Validation/test-оценка, calibration, Model Card и provenance обучения |
+| `FeedbackStore` | Дедуплицированная append-only очередь обезличенных исправлений и архивирование рассмотренных событий |
+| `ModelRegistry` | CLI-only promotion/rollback проверенных версий модели |
 | `ABTestStats` | Файловое хранилище счётчиков A/B-теста MLP vs Softmax |
 | `TripAssistantService` | AI-совет — Gateway с OIDC, прямые провайдеры и rule-based fallback |
 | `OpenMeteoClient` | Погода по точкам маршрута |
@@ -287,7 +305,10 @@ legacy-ссылки `?r=<base64>` продолжают поддерживать�
   а не ограничение алгоритма.
 - Модель предсказания транспорта не имеет доступа к реальной дорожной сети,
   пробкам или расписанию — только дистанция и число точек.
-- Данные не сохраняются между запросами, кроме: кэша геокодирования, состояния
-  rate limiter'а, статистики A/B-теста и весов модели после "живого" дообучения.
-- Веса модели после `api/learn.php` — общий файл на диске для всех
-  посетителей сайта (демо-механика, не изолировано по пользователю/сессии).
+- Данные не сохраняются между запросами, кроме кэша геокодирования, состояния
+  rate limiter'а, агрегированной A/B-статистики и обезличенной очереди
+  исправлений. На Vercel это временные данные и они могут исчезнуть после
+  cold start или деплоя.
+- Публичный `api/learn.php` не изменяет веса. Promotion возможен только через
+  `bin/review_feedback.php` после ручного allow-list review, anomaly checks и
+  holdout-gate; `bin/model_admin.php` сохраняет возможность rollback.
