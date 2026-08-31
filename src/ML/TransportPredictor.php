@@ -118,7 +118,8 @@ class TransportPredictor
     }
 
     /**
-     * @return array{probs: array<string, float>, predicted: string, contributions: array<string, float>}
+     * @return array{probs: array<string, float>, predicted: string,
+     *     contributions: array<string, float>, hidden_activations?: float[]}
      */
     public function explain(float $distanceKm, int $stopsCount): array
     {
