@@ -405,6 +405,7 @@
         renderRouteOptions(lastRouteData);
         renderNavigation(lastRouteData);
         renderMap(lastRouteData.coords, lastRouteData.points, option.geometry);
+        window.updateMlLabForRoute?.(lastRouteData);
         saveRecentRoute(lastRouteData);
     }
 
@@ -525,6 +526,7 @@
     window.refreshRouteUiLanguage = function () {
         if (typeof previousLanguageRefresh === 'function') previousLanguageRefresh();
         window.routeEditor?.refreshLabels();
+        window.refreshMlLabLanguage?.();
         renderSavedRoutes();
         refreshFavoriteButton();
         if (lastRouteData) {

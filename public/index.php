@@ -63,9 +63,11 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=11">
+    <link rel="stylesheet" href="assets/css/route.css?v=12">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.2.0/dist/chartjs-plugin-zoom.min.js"></script>
 </head>
 <body>
 
@@ -182,8 +184,8 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
                 <div class="highlight-item">
                     <span class="highlight-icon">🧠</span>
                     <div class="highlight-text">
-                        <strong data-i18n="highlightAiTitle">Нейросеть учится на лету</strong>
-                        <span data-i18n="highlightAiText">Предсказывает транспорт и подстраивается под ваши правки</span>
+                        <strong data-i18n="highlightAiTitle">Объяснимая ML-рекомендация</strong>
+                        <span data-i18n="highlightAiText">Сравнивает модели, показывает причины и безопасно собирает исправления</span>
                     </div>
                 </div>
                 <div class="highlight-item">
@@ -366,29 +368,88 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
             </div>
 
             <div id="panel-model" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-model" tabindex="0" data-tab-panel="model">
-                <div class="ml-inline-controls">
-                    <button type="button" id="explain-toggle" class="btn-link">🔍 Почему такой транспорт?</button>
-
-                    <div class="learn-correction">
-                        <span data-i18n="learnPrompt">Модель ошиблась?</span>
-                        <button type="button" class="learn-btn" data-label="walk" data-i18n="learnButtonWalk">🚶 пешком</button>
-                        <button type="button" class="learn-btn" data-label="car" data-i18n="learnButtonCar">🚗 авто</button>
-                        <button type="button" class="learn-btn" data-label="bus" data-i18n="learnButtonBus">🚌 автобус</button>
+                <section class="prediction-explainer" aria-labelledby="ml-prediction-title">
+                    <div class="prediction-explainer-head">
+                        <div>
+                            <span class="section-kicker" data-i18n="modelExplanationKicker">Объяснимая рекомендация</span>
+                            <h3 id="ml-prediction-title" data-i18n="modelExplanationTitle">Почему модель выбрала этот транспорт?</h3>
+                        </div>
+                        <div class="model-meta-chips">
+                            <span id="ml-model-version" class="model-meta-chip">MLP</span>
+                            <span id="ml-certainty-chip" class="model-meta-chip model-meta-chip-accent">—</span>
+                        </div>
                     </div>
 
-                    <div class="ab-feedback">
-                        <span id="ab-feedback-prompt"></span>
-                        <button type="button" id="ab-feedback-yes" class="learn-btn">👍</button>
-                        <button type="button" id="ab-feedback-no" class="learn-btn">👎</button>
+                    <div id="ml-insight-loading" class="ml-insight-loading" role="status" data-i18n="modelInsightWaiting">
+                        Рассчитайте маршрут, чтобы увидеть персональное объяснение.
                     </div>
-                </div>
-                <div id="learn-toast" class="learn-toast hidden"></div>
-                <div id="ab-feedback-toast" class="learn-toast hidden"></div>
 
-                <div id="explain-panel" class="explain-panel hidden">
-                    <p id="explain-intro" class="explain-intro"></p>
-                    <div id="explain-bars" class="explain-bars"></div>
-                </div>
+                    <div id="ml-insight-content" class="hidden">
+                        <div class="prediction-hero">
+                            <div>
+                                <span data-i18n="modelRecommendationLabel">Рекомендация модели</span>
+                                <strong id="ml-prediction-mode">—</strong>
+                                <small id="ml-prediction-disclaimer" data-i18n="modelProbabilityDisclaimer">Расчётная вероятность, не гарантия.</small>
+                            </div>
+                            <div class="prediction-score" aria-label="Model score">
+                                <strong id="ml-prediction-score">—</strong>
+                                <span data-i18n="modelScoreLabel">оценка модели</span>
+                            </div>
+                        </div>
+
+                        <div id="ml-probability-bars" class="probability-stack" aria-label="Class probabilities"></div>
+
+                        <div class="model-input-strip">
+                            <span><small data-i18n="modelInputDistance">Дистанция</small><strong id="ml-input-distance">—</strong></span>
+                            <span><small data-i18n="modelInputStops">Остановки</small><strong id="ml-input-stops">—</strong></span>
+                            <span><small data-i18n="modelInputMargin">Отрыв от второго места</small><strong id="ml-input-margin">—</strong></span>
+                            <span><small data-i18n="modelInputBoundary">Ближайшая граница</small><strong id="ml-input-boundary">—</strong></span>
+                        </div>
+
+                        <div class="model-explanation-grid">
+                            <section aria-labelledby="ml-influence-title">
+                                <h4 id="ml-influence-title" data-i18n="modelInfluenceTitle">Что повлияло</h4>
+                                <div id="ml-feature-influence" class="feature-influence-list"></div>
+                            </section>
+                            <section aria-labelledby="ml-counterfactual-title">
+                                <h4 id="ml-counterfactual-title" data-i18n="modelCounterfactualTitle">Что изменит решение</h4>
+                                <div id="ml-counterfactuals" class="counterfactual-list"></div>
+                            </section>
+                        </div>
+
+                        <section class="transport-ranking" aria-labelledby="ml-ranking-title">
+                            <div class="section-heading-inline compact-heading">
+                                <div>
+                                    <h4 id="ml-ranking-title" data-i18n="modelRankingTitle">Рейтинг транспорта</h4>
+                                    <small data-i18n="modelRankingHint">Вероятность модели + время + стоимость + CO₂</small>
+                                </div>
+                            </div>
+                            <div id="ml-ranking-list" class="transport-ranking-list"></div>
+                        </section>
+
+                        <div class="model-feedback-panel">
+                            <div>
+                                <strong data-i18n="learnPrompt">Модель ошиблась?</strong>
+                                <small data-i18n="feedbackQueueHint">Исправление попадёт в обезличенную очередь и не изменит общие веса сразу.</small>
+                            </div>
+                            <div class="model-feedback-actions" role="group" data-i18n-aria-label="feedbackCorrectModeLabel">
+                                <button type="button" class="model-correction-btn learn-btn" data-label="walk" data-i18n="learnButtonWalk">🚶 пешком</button>
+                                <button type="button" class="model-correction-btn learn-btn" data-label="car" data-i18n="learnButtonCar">🚗 авто</button>
+                                <button type="button" class="model-correction-btn learn-btn" data-label="bus" data-i18n="learnButtonBus">🚌 автобус</button>
+                            </div>
+                        </div>
+                        <div id="learn-toast" class="learn-toast hidden" role="status"></div>
+
+                        <div class="ab-feedback">
+                            <span id="ab-feedback-prompt"></span>
+                            <button type="button" id="ab-feedback-yes" class="learn-btn" aria-label="Correct">👍</button>
+                            <button type="button" id="ab-feedback-no" class="learn-btn" aria-label="Incorrect">👎</button>
+                        </div>
+                        <div id="ab-feedback-toast" class="learn-toast hidden" role="status"></div>
+
+                        <button type="button" id="open-ml-lab" class="btn secondary compact-btn" data-i18n="openMlLab">Открыть полную ML Lab</button>
+                    </div>
+                </section>
             </div>
 
             <div id="panel-assistant" class="tab-panel hidden" role="tabpanel" aria-labelledby="tab-assistant" tabindex="0" data-tab-panel="assistant">
@@ -445,45 +506,155 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
         </div>
     </div>
 
-    <div id="boundary-section" class="boundary-section" aria-label="ML Lab">
-        <div class="ml-lab-heading"><span class="section-kicker">ML LAB</span><p data-i18n="mlLabDescription">Экспериментальная зона модели отделена от основного планировщика.</p></div>
-        <button type="button" id="boundary-toggle" class="btn secondary">
-            Показать карту решений модели
-        </button>
-        <div id="boundary-panel" class="boundary-panel hidden">
-            <h3 data-i18n="boundaryTitle">🧠 Как модель делит маршруты на walk / car / bus</h3>
-            <p class="boundary-intro" data-i18n="boundaryIntro"></p>
-            <div class="boundary-controls">
-                <label>
-                    <span data-i18n="boundaryModelLabel">Модель:</span>
-                    <select id="boundary-model-select">
-                        <option value="mlp" data-i18n="boundaryModelMlp">нейросеть (MLP)</option>
-                        <option value="softmax" data-i18n="boundaryModelSoftmax">линейная (softmax)</option>
-                    </select>
-                </label>
+    <section id="boundary-section" class="boundary-section" aria-labelledby="ml-lab-title">
+        <div class="ml-lab-heading">
+            <div>
+                <span class="section-kicker">ML LAB 2.0</span>
+                <h2 id="ml-lab-title" data-i18n="mlLabTitle">Лаборатория решений модели</h2>
+                <p data-i18n="mlLabDescription">Исследуйте границы, сравните модели и проверьте качество на независимой выборке.</p>
             </div>
-            <div class="boundary-chart-wrap">
-                <canvas id="boundary-chart" height="320"></canvas>
-            </div>
-            <button type="button" id="reset-model-button" class="btn-link reset-model-btn" data-i18n="resetModelButton">↩️ Сбросить модель к обученному состоянию</button>
-            <div id="reset-model-toast" class="learn-toast hidden"></div>
-
-            <div class="ab-stats-panel">
-                <h4 data-i18n="abStatsTitle">📊 A/B-тест: MLP vs Softmax (реальные отзывы посетителей)</h4>
-                <div id="ab-stats-content" class="ab-stats-content"></div>
-            </div>
+            <span class="ml-readonly-badge" data-i18n="mlReadOnlyBadge">read-only · production safe</span>
         </div>
-    </div>
+        <button type="button" id="boundary-toggle" class="btn secondary" aria-controls="boundary-panel" aria-expanded="false">
+            Показать ML Lab
+        </button>
+
+        <div id="boundary-panel" class="boundary-panel hidden">
+            <div class="ml-lab-tabs" role="tablist" data-i18n-aria-label="mlLabSectionsLabel" aria-label="Разделы ML Lab">
+                <button type="button" id="ml-tab-boundary" class="ml-lab-tab active" role="tab" aria-selected="true" aria-controls="ml-view-boundary" tabindex="0" data-ml-view="boundary" data-i18n="mlTabBoundary">Карта решений</button>
+                <button type="button" id="ml-tab-compare" class="ml-lab-tab" role="tab" aria-selected="false" aria-controls="ml-view-compare" tabindex="-1" data-ml-view="compare" data-i18n="mlTabCompare">Сравнение</button>
+                <button type="button" id="ml-tab-quality" class="ml-lab-tab" role="tab" aria-selected="false" aria-controls="ml-view-quality" tabindex="-1" data-ml-view="quality" data-i18n="mlTabQuality">Качество</button>
+                <button type="button" id="ml-tab-network" class="ml-lab-tab" role="tab" aria-selected="false" aria-controls="ml-view-network" tabindex="-1" data-ml-view="network" data-i18n="mlTabNetwork">Нейросеть</button>
+                <button type="button" id="ml-tab-training" class="ml-lab-tab" role="tab" aria-selected="false" aria-controls="ml-view-training" tabindex="-1" data-ml-view="training" data-i18n="mlTabTraining">Обучение</button>
+                <button type="button" id="ml-tab-data" class="ml-lab-tab" role="tab" aria-selected="false" aria-controls="ml-view-data" tabindex="-1" data-ml-view="data" data-i18n="mlTabData">Данные</button>
+                <button type="button" id="ml-tab-card" class="ml-lab-tab" role="tab" aria-selected="false" aria-controls="ml-view-card" tabindex="-1" data-ml-view="card" data-i18n="mlTabCard">Model Card</button>
+            </div>
+
+            <section id="ml-view-boundary" class="ml-lab-view" role="tabpanel" aria-labelledby="ml-tab-boundary" tabindex="0">
+                <div class="boundary-view-header">
+                    <div>
+                        <h3 data-i18n="boundaryTitle">Как модель делит маршруты на walk / car / bus</h3>
+                        <p class="boundary-intro" data-i18n="boundaryIntro"></p>
+                    </div>
+                    <div class="boundary-controls">
+                        <label>
+                            <span data-i18n="boundaryModelLabel">Модель:</span>
+                            <select id="boundary-model-select">
+                                <option value="mlp" data-i18n="boundaryModelMlp">нейросеть (MLP)</option>
+                                <option value="softmax" data-i18n="boundaryModelSoftmax">линейная (softmax)</option>
+                            </select>
+                        </label>
+                        <label class="boundary-check"><input type="checkbox" id="boundary-show-regions" checked> <span data-i18n="boundaryShowRegions">Области</span></label>
+                        <label class="boundary-check"><input type="checkbox" id="boundary-show-samples" checked> <span data-i18n="boundaryShowSamples">Примеры</span></label>
+                        <label class="boundary-check"><input type="checkbox" id="boundary-show-disagreement" checked> <span data-i18n="boundaryShowDisagreement">Разногласия</span></label>
+                        <label class="boundary-check"><input type="checkbox" id="boundary-show-current" checked> <span data-i18n="boundaryShowCurrent">Текущий маршрут</span></label>
+                        <button type="button" id="boundary-reset-zoom" class="btn-link" data-i18n="boundaryResetZoom">Сбросить масштаб</button>
+                    </div>
+                </div>
+                <fieldset class="boundary-class-filters">
+                    <legend data-i18n="boundaryClassFilter">Показывать классы</legend>
+                    <label class="class-filter walk"><input type="checkbox" data-boundary-class="walk" checked> 🚶 <span data-i18n="modeWalkShort">Пешком</span></label>
+                    <label class="class-filter car"><input type="checkbox" data-boundary-class="car" checked> 🚗 <span data-i18n="modeCarShort">Авто</span></label>
+                    <label class="class-filter bus"><input type="checkbox" data-boundary-class="bus" checked> 🚌 <span data-i18n="modeBusShort">Автобус</span></label>
+                </fieldset>
+                <div class="boundary-chart-wrap">
+                    <canvas id="boundary-chart" height="390" aria-describedby="boundary-chart-description"></canvas>
+                </div>
+                <p id="boundary-chart-description" class="sr-only" data-i18n="boundaryChartDescription">Цветные области показывают прогноз класса, точки — обучающие примеры, звезда — выбранный маршрут.</p>
+
+                <div class="what-if-panel">
+                    <div class="what-if-heading">
+                        <div><span class="section-kicker">WHAT-IF</span><h4 data-i18n="whatIfTitle">Что будет, если изменить маршрут?</h4></div>
+                        <label><span data-i18n="rankingPriority">Приоритет:</span>
+                            <select id="what-if-priority">
+                                <option value="balanced" data-i18n="priorityBalanced">Баланс</option>
+                                <option value="fast" data-i18n="priorityFast">Быстрее</option>
+                                <option value="cheap" data-i18n="priorityCheap">Дешевле</option>
+                                <option value="eco" data-i18n="priorityEco">Экологичнее</option>
+                            </select>
+                        </label>
+                    </div>
+                    <div class="what-if-controls">
+                        <label><span data-i18n="modelInputDistance">Дистанция</span><output id="what-if-distance-output">100 км</output><input type="range" id="what-if-distance" min="0" max="100" value="65"></label>
+                        <label><span data-i18n="modelInputStops">Остановки</span><output id="what-if-stops-output">4</output><input type="range" id="what-if-stops" min="2" max="12" value="4"></label>
+                    </div>
+                    <div id="what-if-result" class="what-if-result" aria-live="polite"></div>
+                </div>
+
+                <details class="accessible-model-table">
+                    <summary data-i18n="boundaryTableToggle">Показать доступную таблицу значений</summary>
+                    <div class="table-scroll"><table><thead><tr><th data-i18n="modelInputDistance">Дистанция</th><th data-i18n="modelInputStops">Остановки</th><th>MLP</th><th>Softmax</th></tr></thead><tbody id="boundary-data-table"></tbody></table></div>
+                </details>
+            </section>
+
+            <section id="ml-view-compare" class="ml-lab-view hidden" role="tabpanel" aria-labelledby="ml-tab-compare" tabindex="0">
+                <div class="section-heading-inline"><div><span class="section-kicker">A/B</span><h3 data-i18n="modelCompareTitle">MLP и Softmax — одновременно</h3></div><span id="model-agreement-badge" class="model-agreement-badge">—</span></div>
+                <div id="model-comparison-cards" class="model-comparison-cards"></div>
+                <div class="ab-stats-panel">
+                    <h4 data-i18n="abStatsTitle">A/B-тест: MLP vs Softmax</h4>
+                    <p data-i18n="abStatsConfidenceHint">Победитель не объявляется до 30 отзывов на вариант; показывается 95% доверительный интервал.</p>
+                    <div id="ab-stats-content" class="ab-stats-content"></div>
+                </div>
+            </section>
+
+            <section id="ml-view-quality" class="ml-lab-view hidden" role="tabpanel" aria-labelledby="ml-tab-quality" tabindex="0">
+                <div class="section-heading-inline"><div><span class="section-kicker">VALIDATION</span><h3 data-i18n="modelQualityTitle">Качество на независимой выборке</h3></div><span id="quality-sample-count" class="model-meta-chip">—</span></div>
+                <div id="quality-summary" class="quality-summary"></div>
+                <div class="quality-grid">
+                    <section><h4 data-i18n="confusionMatrixTitle">Confusion matrix</h4><div id="confusion-matrix" class="table-scroll"></div></section>
+                    <section><h4 data-i18n="calibrationTitle">Калибровка вероятностей</h4><div class="calibration-chart-wrap"><canvas id="calibration-chart" height="260"></canvas></div></section>
+                </div>
+                <div id="per-class-metrics" class="table-scroll"></div>
+            </section>
+
+            <section id="ml-view-network" class="ml-lab-view hidden" role="tabpanel" aria-labelledby="ml-tab-network" tabindex="0">
+                <div class="section-heading-inline"><div><span class="section-kicker">FORWARD PASS</span><h3 data-i18n="networkTitle">Как сигнал проходит через нейросеть</h3></div><span class="model-meta-chip">2 → 8 → 3</span></div>
+                <p data-i18n="networkHint">Толщина и яркость связей отражают активации текущего маршрута; это точные вычисления forward pass.</p>
+                <div id="network-visual" class="network-visual" role="img" data-i18n-aria-label="networkAriaLabel"></div>
+                <div id="network-values" class="network-values"></div>
+            </section>
+
+            <section id="ml-view-training" class="ml-lab-view hidden" role="tabpanel" aria-labelledby="ml-tab-training" tabindex="0">
+                <div class="section-heading-inline"><div><span class="section-kicker">TRAINING RUN</span><h3 data-i18n="trainingTitle">Как модель обучалась</h3></div><span id="training-run-date" class="model-meta-chip">—</span></div>
+                <p data-i18n="trainingHint">Кривая потерь и воспроизводимые снимки границы показывают, как MLP менялась по эпохам.</p>
+                <div class="training-grid">
+                    <section>
+                        <h4 data-i18n="trainingCurveTitle">Кросс-энтропия по эпохам</h4>
+                        <div class="training-chart-wrap"><canvas id="training-curve-chart" height="300"></canvas></div>
+                    </section>
+                    <section>
+                        <div class="training-snapshot-heading"><h4 data-i18n="trainingBoundaryTitle">Эволюция границы решений</h4><button type="button" id="training-play" class="btn secondary compact-btn" data-i18n="trainingPlay">▶ Показать</button></div>
+                        <canvas id="training-boundary-canvas" class="training-boundary-canvas" width="640" height="300" role="img" data-i18n-aria-label="trainingBoundaryAriaLabel"></canvas>
+                        <label class="training-scrubber"><span data-i18n="trainingEpoch">Эпоха</span><input type="range" id="training-snapshot-slider" min="0" max="0" value="0" step="1"><output id="training-snapshot-output">—</output></label>
+                        <div id="training-snapshot-metrics" class="training-snapshot-metrics"></div>
+                    </section>
+                </div>
+            </section>
+
+            <section id="ml-view-data" class="ml-lab-view hidden" role="tabpanel" aria-labelledby="ml-tab-data" tabindex="0">
+                <div class="section-heading-inline"><div><span class="section-kicker">DATASET</span><h3 data-i18n="datasetTitle">Данные и похожие примеры</h3></div><span id="dataset-privacy-badge" class="model-meta-chip" data-i18n="datasetPrivacyBadge">без персональных данных</span></div>
+                <div id="dataset-summary" class="dataset-summary"></div>
+                <h4 data-i18n="nearestExamplesTitle">Ближайшие обучающие примеры</h4>
+                <div id="nearest-examples" class="nearest-examples"></div>
+            </section>
+
+            <section id="ml-view-card" class="ml-lab-view hidden" role="tabpanel" aria-labelledby="ml-tab-card" tabindex="0">
+                <div class="section-heading-inline"><div><span class="section-kicker">MODEL CARD</span><h3 data-i18n="modelCardTitle">Паспорт модели</h3></div><button type="button" id="export-model-card" class="btn secondary compact-btn" data-i18n="exportModelCard">Экспорт JSON</button></div>
+                <div id="model-card-content" class="model-card-content"></div>
+                <div class="release-policy-card"><h4 data-i18n="releasePolicyTitle">Безопасный выпуск модели</h4><ol><li data-i18n="releaseStepQueue">Исправления попадают в обезличенную очередь.</li><li data-i18n="releaseStepBatch">Кандидат обучается только пакетно.</li><li data-i18n="releaseStepGate">Публикация проходит holdout-gate по F1 и log loss.</li><li data-i18n="releaseStepRollback">Каждая версия допускает rollback.</li></ol></div>
+            </section>
+        </div>
+    </section>
 
     <button type="button" id="install-button" class="install-btn hidden" data-i18n="installApp">⬇️ Установить приложение</button>
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=11"></script>
-<script src="assets/js/route-editor.js?v=11"></script>
-<script src="assets/js/ml_boundary.js?v=11"></script>
-<script src="assets/js/app.js?v=11"></script>
-<script src="assets/js/ui.js?v=11"></script>
-<script src="assets/js/product.js?v=11"></script>
+<script src="assets/js/i18n.js?v=12"></script>
+<script src="assets/js/route-editor.js?v=12"></script>
+<script src="assets/js/ml_boundary.js?v=12"></script>
+<script src="assets/js/app.js?v=12"></script>
+<script src="assets/js/ui.js?v=12"></script>
+<script src="assets/js/product.js?v=12"></script>
 </body>
 </html>
