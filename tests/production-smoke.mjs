@@ -59,7 +59,7 @@ assert.equal(health.capabilities?.model_training_snapshots, true);
 assert.equal(health.capabilities?.safe_feedback_queue, true);
 
 const home = await fetchChecked('/?smoke=' + Date.now());
-assert.match(home.body, /assets\/js\/product\.js\?v=13/);
+assert.match(home.body, /assets\/js\/product\.js\?v=14/);
 assert.match(home.body, /id="route-stop-list"/);
 assert.match(home.body, /id="ml-prediction-title"/);
 assert.match(home.body, /id="ml-view-quality"/);
@@ -80,7 +80,7 @@ const sitemap = await fetchChecked('/sitemap.xml');
 assert.match(sitemap.body, /<urlset/);
 
 const serviceWorker = await fetchChecked('/service-worker.js?smoke=' + Date.now());
-assert.match(serviceWorker.body, /srp-shell-v13/);
+assert.match(serviceWorker.body, /srp-shell-v14/);
 
 // ML smoke requests contain anonymous numeric features only — no route labels,
 // addresses or coordinates are sent to model diagnostics.

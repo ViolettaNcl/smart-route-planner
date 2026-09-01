@@ -192,15 +192,38 @@ test('structured editor calculates, compares and exports a route', async ({ page
     expect(download.suggestedFilename()).toBe('smart-route.geojson');
 });
 
-test('mobile editor behaves as a bottom sheet', async ({ page }) => {
+test('mobile editor opens full screen in one tap and closes to its tab', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');
     const panel = page.locator('.panel');
-    await expect(page.locator('#panel-sheet-handle')).toBeVisible();
-    await page.locator('#map-focus-toggle').click();
+    const handle = page.locator('#panel-sheet-handle');
+    const content = page.locator('#route-editor-sheet-content');
+
+    await expect(handle).toBeVisible();
     await expect(panel).toHaveClass(/sheet-peek/);
-    await page.locator('#panel-sheet-handle').click();
-    await expect(panel).toHaveClass(/sheet-half/);
+    await expect(handle).toHaveAttribute('aria-expanded', 'false');
+    await expect(content).toBeHidden();
+
+    await handle.click();
+    await expect(panel).toHaveClass(/sheet-full/);
+    await expect(handle).toHaveAttribute('aria-expanded', 'true');
+    await expect(content).toBeVisible();
+    await expect(page.locator('body')).toHaveClass(/route-sheet-open/);
+    await expect(page.locator('.map-panel')).toHaveJSProperty('inert', true);
+    await expect(panel).toHaveCSS('transform', 'none');
+    const fullBox = await panel.boundingBox();
+    expect(fullBox).not.toBeNull();
+    expect(fullBox.x).toBe(0);
+    expect(fullBox.y).toBe(0);
+    expect(fullBox.width).toBe(390);
+    expect(fullBox.height).toBe(844);
+
+    await handle.click();
+    await expect(panel).toHaveClass(/sheet-peek/);
+    await expect(handle).toHaveAttribute('aria-expanded', 'false');
+    await expect(content).toBeHidden();
+    await expect(page.locator('body')).not.toHaveClass(/route-sheet-open/);
+    await expect(page.locator('.map-panel')).toHaveJSProperty('inert', false);
 });
 
 test('mobile map picker uses a compact hint and accepts both endpoints', async ({ page }) => {
@@ -211,6 +234,7 @@ test('mobile map picker uses a compact hint and accepts both endpoints', async (
     const mapPanel = page.locator('.map-panel');
     const hint = page.locator('#map-pick-hint');
 
+    await page.locator('#panel-sheet-handle').click();
     await page.locator('[data-action="pick"]').nth(0).click();
     await expect(mapPanel).toHaveClass(/map-picking/);
     await expect(hint).toBeVisible();

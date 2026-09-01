@@ -439,6 +439,7 @@
     }
 
     window.enableRouteMapPick = function (enabled) {
+        const wasMapPickEnabled = mapPickEnabled;
         mapPickEnabled = Boolean(enabled);
         const pickHint = document.getElementById('map-pick-hint');
         hide(mapPlaceholder);
@@ -456,16 +457,46 @@
             else hide(pickHint);
         }
         if (mapPickEnabled) setSheetState('peek');
+        else if (wasMapPickEnabled && window.innerWidth <= 700) setSheetState('full');
     };
 
     function setSheetState(state) {
         const panel = document.querySelector('.panel');
         if (!panel) return;
-        const normalized = ['peek', 'half', 'full'].includes(state) ? state : 'half';
+        const mobile = window.innerWidth <= 700;
+        const normalized = state === 'peek' ? 'peek' : 'full';
+        const collapsed = mobile && normalized === 'peek';
+        const sheetContent = document.getElementById('route-editor-sheet-content');
         panel.classList.remove('sheet-peek', 'sheet-half', 'sheet-full');
         panel.classList.add('sheet-' + normalized);
         panel.dataset.sheetState = normalized;
-        document.getElementById('panel-sheet-handle')?.setAttribute('aria-expanded', normalized === 'peek' ? 'false' : 'true');
+        document.getElementById('panel-sheet-handle')?.setAttribute('aria-expanded', collapsed ? 'false' : 'true');
+        const expandedModal = mobile && normalized === 'full';
+        document.body.classList.toggle('route-sheet-open', expandedModal);
+
+        const backgroundTargets = [
+            ...document.querySelectorAll('body > :not(.layout):not(script)'),
+            ...document.querySelectorAll('.layout > :not(.panel)'),
+        ];
+        backgroundTargets.forEach((element) => {
+            element.inert = expandedModal;
+        });
+
+        if (sheetContent) {
+            sheetContent.inert = collapsed;
+            if (collapsed) sheetContent.setAttribute('aria-hidden', 'true');
+            else sheetContent.removeAttribute('aria-hidden');
+        }
+
+        if (expandedModal) {
+            panel.setAttribute('role', 'dialog');
+            panel.setAttribute('aria-modal', 'true');
+        } else {
+            panel.removeAttribute('role');
+            panel.removeAttribute('aria-modal');
+        }
+
+        if (collapsed) panel.scrollTop = 0;
     }
 
     function escapeXml(value) {
@@ -610,8 +641,8 @@
 
         const handle = document.getElementById('panel-sheet-handle');
         handle?.addEventListener('click', () => {
-            const current = document.querySelector('.panel')?.dataset.sheetState || 'half';
-            setSheetState(current === 'peek' ? 'half' : (current === 'half' ? 'full' : 'peek'));
+            const current = document.querySelector('.panel')?.dataset.sheetState || 'peek';
+            setSheetState(current === 'peek' ? 'full' : 'peek');
         });
         document.getElementById('map-focus-toggle')?.addEventListener('click', () => setSheetState('peek'));
         document.getElementById('route-stop-list')?.addEventListener('focusin', () => {
@@ -622,5 +653,14 @@
             window.routeEditor?.cancelMapPick();
             if (window.innerWidth <= 700) setSheetState('peek');
         });
+
+        let mobileSheetViewport = window.innerWidth <= 700;
+        setSheetState(mobileSheetViewport ? 'peek' : 'full');
+        window.addEventListener('resize', () => {
+            const mobile = window.innerWidth <= 700;
+            if (mobile === mobileSheetViewport) return;
+            mobileSheetViewport = mobile;
+            setSheetState(mobile ? 'peek' : 'full');
+        }, { passive: true });
     });
 })();

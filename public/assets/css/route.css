@@ -4936,7 +4936,11 @@ textarea {
 
 @media (max-width: 700px) {
     body {
-        padding-bottom: 104px;
+        padding-bottom: calc(78px + env(safe-area-inset-bottom));
+    }
+
+    body.route-sheet-open {
+        overflow: hidden;
     }
 
     .layout {
@@ -4953,30 +4957,39 @@ textarea {
     }
 
     .panel {
+        --route-sheet-tab-height: 64px;
         position: fixed;
         z-index: 50;
-        right: 8px;
-        bottom: 8px;
-        left: 8px;
+        inset: 0;
         order: 2;
-        max-height: min(78svh, 680px);
+        width: 100%;
+        height: 100svh;
+        height: 100dvh;
+        max-height: none;
         min-height: 0;
-        padding: 0 18px 24px;
+        padding: 0 18px max(24px, env(safe-area-inset-bottom));
         overflow-y: auto;
         overscroll-behavior: contain;
-        border-radius: 22px;
+        border-radius: 0;
         box-shadow: 0 -18px 60px rgba(0, 0, 0, 0.48);
-        transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+        touch-action: pan-y;
+        transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), border-radius 0.2s ease;
     }
 
     .panel.sheet-peek {
-        transform: translateY(calc(100% - 94px));
+        right: 8px;
+        left: 8px;
+        width: auto;
+        overflow: hidden;
+        border-radius: 22px 22px 0 0;
+        transform: translateY(calc(100dvh - var(--route-sheet-tab-height) - env(safe-area-inset-bottom)));
     }
 
-    .panel.sheet-half {
-        transform: translateY(43%);
+    .panel.sheet-peek .panel-sheet-content {
+        display: none;
     }
 
+    .panel.sheet-half,
     .panel.sheet-full {
         transform: translateY(0);
     }
@@ -4987,9 +5000,9 @@ textarea {
         top: 0;
         display: flex;
         width: calc(100% + 36px);
-        min-height: 52px;
+        min-height: var(--route-sheet-tab-height);
         margin: 0 -18px 12px;
-        padding: 8px 18px 9px;
+        padding: 9px 54px 10px 18px;
         align-items: center;
         flex-direction: column;
         gap: 5px;
@@ -5004,6 +5017,17 @@ textarea {
         backdrop-filter: blur(16px);
     }
 
+    .panel.sheet-peek .panel-sheet-handle {
+        margin-bottom: 0;
+        border-bottom: 0;
+        border-radius: 22px 22px 0 0;
+    }
+
+    .panel.sheet-full .panel-sheet-handle {
+        padding-top: max(9px, env(safe-area-inset-top));
+        border-radius: 0;
+    }
+
     .panel-sheet-handle:hover {
         transform: none;
         box-shadow: none;
@@ -5014,6 +5038,31 @@ textarea {
         height: 4px;
         border-radius: 999px;
         background: var(--line-bright);
+    }
+
+    .sheet-state-icon {
+        position: absolute;
+        top: 50%;
+        right: 18px;
+        display: grid;
+        width: 30px;
+        height: 30px;
+        place-items: center;
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        color: var(--text);
+        transform: translateY(-50%);
+        transition: transform 0.22s ease, background 0.22s ease;
+    }
+
+    .sheet-state-icon svg {
+        width: 18px;
+        height: 18px;
+    }
+
+    .panel.sheet-full .sheet-state-icon {
+        background: var(--bg-raised);
+        transform: translateY(-50%) rotate(180deg);
     }
 
     .map-focus-toggle {
