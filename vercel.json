@@ -30,8 +30,8 @@
     { "src": "/assets/(.*)", "dest": "/public/assets/$1" },
     { "src": "/manifest.webmanifest", "dest": "/public/manifest.webmanifest" },
     { "src": "/service-worker.js", "dest": "/public/service-worker.js" },
-    { "src": "/robots.txt", "dest": "/public/robots.txt" },
-    { "src": "/sitemap.xml", "dest": "/public/sitemap.xml" },
+    { "src": "/robots.txt", "dest": "/api/index.php?meta=robots" },
+    { "src": "/sitemap.xml", "dest": "/api/index.php?meta=sitemap" },
     { "src": "/api/([A-Za-z_]+)\\.php", "dest": "/api/index.php?endpoint=$1" },
     { "src": "/", "dest": "/api/index.php?home=1" }
   ]

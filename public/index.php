@@ -1,8 +1,7 @@
 <?php
-$publicUrl = getenv('APP_PUBLIC_URL');
-$publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) === 1
-    ? rtrim($publicUrl, '/')
-    : 'https://smart-route-planner-violettancls-projects.vercel.app';
+require_once dirname(__DIR__) . '/bootstrap.php';
+
+$publicUrl = \App\Support\PublicUrl::resolve();
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -63,7 +62,7 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=12">
+    <link rel="stylesheet" href="assets/css/route.css?v=13">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
@@ -226,6 +225,11 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
             <div id="map-scene-status" class="map-scene-status hidden" role="status" aria-live="polite">
                 <span class="map-scene-pulse" aria-hidden="true"></span>
                 <span id="map-scene-status-text"></span>
+            </div>
+
+            <div id="map-pick-hint" class="map-pick-hint hidden" role="status" aria-live="polite">
+                <span aria-hidden="true">⌖</span>
+                <span data-i18n="mapPickHint">Нажмите на нужное место</span>
             </div>
 
             <div id="map-style-indicator" class="map-style-chip hidden" aria-hidden="true">
@@ -650,11 +654,11 @@ $publicUrl = is_string($publicUrl) && preg_match('#^https?://#', $publicUrl) ===
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=12"></script>
-<script src="assets/js/route-editor.js?v=12"></script>
-<script src="assets/js/ml_boundary.js?v=12"></script>
-<script src="assets/js/app.js?v=12"></script>
-<script src="assets/js/ui.js?v=12"></script>
-<script src="assets/js/product.js?v=12"></script>
+<script src="assets/js/i18n.js?v=13"></script>
+<script src="assets/js/route-editor.js?v=13"></script>
+<script src="assets/js/ml_boundary.js?v=13"></script>
+<script src="assets/js/app.js?v=13"></script>
+<script src="assets/js/ui.js?v=13"></script>
+<script src="assets/js/product.js?v=13"></script>
 </body>
 </html>

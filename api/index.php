@@ -13,6 +13,27 @@ $projectRoot = dirname(__DIR__);
 $requestUri = (string) ($_SERVER['REQUEST_URI'] ?? '/');
 $requestPath = (string) (parse_url($requestUri, PHP_URL_PATH) ?: '/');
 
+$metaDocument = $_GET['meta'] ?? '';
+$metaDocument = is_string($metaDocument) ? trim($metaDocument) : '';
+if (in_array($metaDocument, ['robots', 'sitemap'], true)) {
+    require_once $projectRoot . '/bootstrap.php';
+    $publicUrl = \App\Support\PublicUrl::resolve();
+
+    if ($metaDocument === 'robots') {
+        header('Content-Type: text/plain; charset=utf-8');
+        echo "User-agent: *\nAllow: /\n\nSitemap: {$publicUrl}/sitemap.xml\n";
+        return;
+    }
+
+    header('Content-Type: application/xml; charset=utf-8');
+    $location = htmlspecialchars($publicUrl . '/', ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n"
+        . '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">' . "\n"
+        . "  <url><loc>{$location}</loc><changefreq>weekly</changefreq><priority>1.0</priority></url>\n"
+        . '</urlset>' . "\n";
+    return;
+}
+
 if (($_GET['home'] ?? null) === '1' || $requestPath === '/') {
     require $projectRoot . '/public/index.php';
     return;

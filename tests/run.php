@@ -17,6 +17,7 @@ require __DIR__ . '/EmissionsEstimatorTest.php';
 require __DIR__ . '/ABTestStatsTest.php';
 require __DIR__ . '/KMeansDaySplitterTest.php';
 require __DIR__ . '/RateLimiterTest.php';
+require __DIR__ . '/OsrmRoadRouterTest.php';
 require __DIR__ . '/RoutePlannerTest.php';
 require __DIR__ . '/Http/HttpTestServer.php';
 require __DIR__ . '/Http/ApiHttpTest.php';
@@ -32,6 +33,7 @@ use Tests\KMeansDaySplitterTest;
 use Tests\MLPClassifierTest;
 use Tests\ModelEvaluatorTest;
 use Tests\ModelInsightServiceTest;
+use Tests\OsrmRoadRouterTest;
 use Tests\RateLimiterTest;
 use Tests\RouteOptimizerTest;
 use Tests\RoutePlannerTest;
@@ -77,6 +79,9 @@ echo "\nKMeansDaySplitter (кластеризация маршрута по дн
 
 echo "\nRateLimiter (token bucket):\n";
 (new RateLimiterTest())->run($reporter);
+
+echo "\nOsrmRoadRouter (cache + provider failover):\n";
+(new OsrmRoadRouterTest())->run($reporter);
 
 echo "\nRoutePlanner (интеграционный):\n";
 (new RoutePlannerTest())->run($reporter);

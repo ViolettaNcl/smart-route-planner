@@ -77,6 +77,8 @@ echo json_encode([
         'structured_stops' => true,
         'route_alternatives' => true,
         'navigation_steps' => true,
+        'routing_provider_failover' => true,
+        'routing_result_cache' => true,
         'model_insights' => true,
         'model_quality_report' => true,
         'model_training_snapshots' => true,

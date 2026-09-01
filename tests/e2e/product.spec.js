@@ -203,6 +203,37 @@ test('mobile editor behaves as a bottom sheet', async ({ page }) => {
     await expect(panel).toHaveClass(/sheet-half/);
 });
 
+test('mobile map picker uses a compact hint and accepts both endpoints', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+
+    const panel = page.locator('.panel');
+    const mapPanel = page.locator('.map-panel');
+    const hint = page.locator('#map-pick-hint');
+
+    await page.locator('[data-action="pick"]').nth(0).click();
+    await expect(mapPanel).toHaveClass(/map-picking/);
+    await expect(hint).toBeVisible();
+    const hintBox = await hint.boundingBox();
+    expect(hintBox).not.toBeNull();
+    expect(hintBox.height).toBeLessThan(64);
+    expect(hintBox.width).toBeLessThan(320);
+    expect(await mapPanel.evaluate((element) => getComputedStyle(element, '::after').content)).toBe('""');
+
+    await page.evaluate(() => window.routeEditor.receiveMapPoint(55.7558, 37.6173));
+    await expect(hint).toBeHidden();
+    await expect(page.locator('[data-stop-input]').nth(0)).toHaveValue(/Точка на карте/);
+
+    await page.locator('#panel-sheet-handle').click();
+    await page.locator('#panel-sheet-handle').click();
+    await expect(panel).toHaveClass(/sheet-full/);
+    await page.locator('[data-action="pick"]').nth(1).click();
+    await expect(hint).toBeVisible();
+    await page.evaluate(() => window.routeEditor.receiveMapPoint(59.9343, 30.3351));
+    await expect(hint).toBeHidden();
+    await expect(page.locator('[data-stop-input]').nth(1)).toHaveValue(/Точка на карте/);
+});
+
 test('ML Lab explains, compares and audits the selected model safely', async ({ page }) => {
     await page.goto('/');
     await page.locator('[data-stop-input]').nth(0).fill('Berlin');

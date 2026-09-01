@@ -51,13 +51,15 @@ const health = await waitForExpectedDeployment();
 assert.equal(health.capabilities?.structured_stops, true);
 assert.equal(health.capabilities?.route_alternatives, true);
 assert.equal(health.capabilities?.navigation_steps, true);
+assert.equal(health.capabilities?.routing_provider_failover, true);
+assert.equal(health.capabilities?.routing_result_cache, true);
 assert.equal(health.capabilities?.model_insights, true);
 assert.equal(health.capabilities?.model_quality_report, true);
 assert.equal(health.capabilities?.model_training_snapshots, true);
 assert.equal(health.capabilities?.safe_feedback_queue, true);
 
 const home = await fetchChecked('/?smoke=' + Date.now());
-assert.match(home.body, /assets\/js\/product\.js\?v=12/);
+assert.match(home.body, /assets\/js\/product\.js\?v=13/);
 assert.match(home.body, /id="route-stop-list"/);
 assert.match(home.body, /id="ml-prediction-title"/);
 assert.match(home.body, /id="ml-view-quality"/);
@@ -78,7 +80,7 @@ const sitemap = await fetchChecked('/sitemap.xml');
 assert.match(sitemap.body, /<urlset/);
 
 const serviceWorker = await fetchChecked('/service-worker.js?smoke=' + Date.now());
-assert.match(serviceWorker.body, /srp-shell-v12/);
+assert.match(serviceWorker.body, /srp-shell-v13/);
 
 // ML smoke requests contain anonymous numeric features only — no route labels,
 // addresses or coordinates are sent to model diagnostics.
@@ -115,6 +117,9 @@ assert.equal(route.ok, true);
 assert.equal(route.stops, 2);
 assert.ok(Array.isArray(route.route_geometry) && route.route_geometry.length >= 2);
 assert.ok(Array.isArray(route.route_options) && route.route_options.length >= 1);
+assert.equal(typeof route.routing_cached, 'boolean');
+assert.equal(typeof route.routing_failover_used, 'boolean');
+assert.equal(typeof route.routing_cache_status, 'string');
 
 const report = {
     ok: true,

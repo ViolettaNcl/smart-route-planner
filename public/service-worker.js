@@ -12,17 +12,17 @@
  * отдавать устаревший кэшированный ответ.
  */
 
-const CACHE_VERSION = 'srp-shell-v12';
+const CACHE_VERSION = 'srp-shell-v13';
 
 const SHELL_ASSETS = [
     './',
-    './assets/css/route.css?v=12',
-    './assets/js/app.js?v=12',
-    './assets/js/ui.js?v=12',
-    './assets/js/i18n.js?v=12',
-    './assets/js/route-editor.js?v=12',
-    './assets/js/product.js?v=12',
-    './assets/js/ml_boundary.js?v=12',
+    './assets/css/route.css?v=13',
+    './assets/js/app.js?v=13',
+    './assets/js/ui.js?v=13',
+    './assets/js/i18n.js?v=13',
+    './assets/js/route-editor.js?v=13',
+    './assets/js/product.js?v=13',
+    './assets/js/ml_boundary.js?v=13',
     './assets/icons/logo-source.svg',
     './assets/icons/favicon.ico',
     './assets/icons/favicon-16.png',
