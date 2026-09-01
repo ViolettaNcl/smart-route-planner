@@ -224,8 +224,10 @@ test('mobile map picker uses a compact hint and accepts both endpoints', async (
     await expect(hint).toBeHidden();
     await expect(page.locator('[data-stop-input]').nth(0)).toHaveValue(/Точка на карте/);
 
-    await page.locator('#panel-sheet-handle').click();
-    await page.locator('#panel-sheet-handle').click();
+    const sheetHandle = page.locator('#panel-sheet-handle');
+    await sheetHandle.click();
+    await expect(panel).toHaveClass(/sheet-half/);
+    await sheetHandle.click();
     await expect(panel).toHaveClass(/sheet-full/);
     await page.locator('[data-action="pick"]').nth(1).click();
     await expect(hint).toBeVisible();
