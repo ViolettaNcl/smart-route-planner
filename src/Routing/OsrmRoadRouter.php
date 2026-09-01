@@ -291,9 +291,6 @@ class OsrmRoadRouter implements RoadRouterInterface
 
         $valid = [];
         foreach ($candidates as $candidate) {
-            if (!is_string($candidate)) {
-                continue;
-            }
             $normalized = rtrim(trim($candidate), '/');
             if (preg_match('#^https?://#i', $normalized) === 1) {
                 $valid[] = $normalized;
