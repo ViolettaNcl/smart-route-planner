@@ -62,7 +62,7 @@ $publicUrl = \App\Support\PublicUrl::resolve();
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=13">
+    <link rel="stylesheet" href="assets/css/route.css?v=14">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
@@ -113,11 +113,17 @@ $publicUrl = \App\Support\PublicUrl::resolve();
     </header>
 
     <div class="layout">
-        <aside class="panel sheet-half" aria-labelledby="route-form-title" data-sheet-state="half">
-            <button type="button" id="panel-sheet-handle" class="panel-sheet-handle" aria-expanded="true">
+        <aside class="panel sheet-peek" aria-labelledby="route-form-title" data-sheet-state="peek">
+            <button type="button" id="panel-sheet-handle" class="panel-sheet-handle" aria-expanded="false" aria-controls="route-editor-sheet-content">
                 <span class="sheet-grabber" aria-hidden="true"></span>
                 <span data-i18n="mobileRouteSheet">Редактор маршрута</span>
+                <span class="sheet-state-icon" aria-hidden="true">
+                    <svg viewBox="0 0 20 20" focusable="false">
+                        <path d="m5 12.5 5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                </span>
             </button>
+            <div id="route-editor-sheet-content" class="panel-sheet-content">
             <div class="panel-heading">
                 <span class="section-kicker" data-i18n="routeSetupKicker">01 · Маршрут</span>
                 <h2 id="route-form-title" data-i18n="routeSetupTitle">Куда отправимся?</h2>
@@ -194,6 +200,7 @@ $publicUrl = \App\Support\PublicUrl::resolve();
                         <span data-i18n="highlightCostText">Расход топлива или билет плюс экологический след поездки</span>
                     </div>
                 </div>
+            </div>
             </div>
         </aside>
 
@@ -654,11 +661,11 @@ $publicUrl = \App\Support\PublicUrl::resolve();
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=13"></script>
-<script src="assets/js/route-editor.js?v=13"></script>
-<script src="assets/js/ml_boundary.js?v=13"></script>
-<script src="assets/js/app.js?v=13"></script>
-<script src="assets/js/ui.js?v=13"></script>
-<script src="assets/js/product.js?v=13"></script>
+<script src="assets/js/i18n.js?v=14"></script>
+<script src="assets/js/route-editor.js?v=14"></script>
+<script src="assets/js/ml_boundary.js?v=14"></script>
+<script src="assets/js/app.js?v=14"></script>
+<script src="assets/js/ui.js?v=14"></script>
+<script src="assets/js/product.js?v=14"></script>
 </body>
 </html>
