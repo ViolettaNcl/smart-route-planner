@@ -1391,7 +1391,7 @@ if ('serviceWorker' in navigator) {
             });
         }
 
-        navigator.serviceWorker.register('service-worker.js?v=14').catch(() => {
+        navigator.serviceWorker.register('service-worker.js?v=15').catch(() => {
             // Если что-то пошло не так (например, http без TLS) — сайт всё равно
             // должен нормально работать, просто без офлайн-кэша.
         });
