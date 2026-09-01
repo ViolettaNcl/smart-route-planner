@@ -62,7 +62,7 @@ $publicUrl = \App\Support\PublicUrl::resolve();
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=14">
+    <link rel="stylesheet" href="assets/css/route.css?v=15">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
@@ -116,7 +116,17 @@ $publicUrl = \App\Support\PublicUrl::resolve();
         <aside class="panel sheet-peek" aria-labelledby="route-form-title" data-sheet-state="peek">
             <button type="button" id="panel-sheet-handle" class="panel-sheet-handle" aria-expanded="false" aria-controls="route-editor-sheet-content">
                 <span class="sheet-grabber" aria-hidden="true"></span>
-                <span data-i18n="mobileRouteSheet">Редактор маршрута</span>
+                <span class="sheet-route-mark" aria-hidden="true">
+                    <svg viewBox="0 0 28 28" focusable="false">
+                        <path d="M6.5 20.5c3.3-7.5 7.3 1.2 10.2-6.4 1.1-2.8 2.5-4.4 4.8-6.1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-dasharray="1 4"/>
+                        <circle cx="6.5" cy="20.5" r="2.4" fill="currentColor"/>
+                        <circle cx="21.5" cy="8" r="2.8" fill="currentColor"/>
+                    </svg>
+                </span>
+                <span class="sheet-copy">
+                    <strong data-i18n="mobileRouteSheet">Редактор маршрута</strong>
+                    <small data-i18n="submitIdle">Рассчитать маршрут</small>
+                </span>
                 <span class="sheet-state-icon" aria-hidden="true">
                     <svg viewBox="0 0 20 20" focusable="false">
                         <path d="m5 12.5 5-5 5 5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -661,11 +671,11 @@ $publicUrl = \App\Support\PublicUrl::resolve();
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=14"></script>
-<script src="assets/js/route-editor.js?v=14"></script>
-<script src="assets/js/ml_boundary.js?v=14"></script>
-<script src="assets/js/app.js?v=14"></script>
-<script src="assets/js/ui.js?v=14"></script>
-<script src="assets/js/product.js?v=14"></script>
+<script src="assets/js/i18n.js?v=15"></script>
+<script src="assets/js/route-editor.js?v=15"></script>
+<script src="assets/js/ml_boundary.js?v=15"></script>
+<script src="assets/js/app.js?v=15"></script>
+<script src="assets/js/ui.js?v=15"></script>
+<script src="assets/js/product.js?v=15"></script>
 </body>
 </html>

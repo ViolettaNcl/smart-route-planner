@@ -198,11 +198,19 @@ test('mobile editor opens full screen in one tap and closes to its tab', async (
     const panel = page.locator('.panel');
     const handle = page.locator('#panel-sheet-handle');
     const content = page.locator('#route-editor-sheet-content');
+    const routeMark = handle.locator('.sheet-route-mark');
+    const actionHint = handle.locator('.sheet-copy small');
 
     await expect(handle).toBeVisible();
+    await expect(routeMark).toBeVisible();
+    await expect(actionHint).toContainText(/Рассчитать маршрут|Calculate route/);
     await expect(panel).toHaveClass(/sheet-peek/);
     await expect(handle).toHaveAttribute('aria-expanded', 'false');
     await expect(content).toBeHidden();
+    const handleBox = await handle.boundingBox();
+    expect(handleBox).not.toBeNull();
+    expect(handleBox.height).toBeGreaterThanOrEqual(72);
+    expect(handleBox.height).toBeLessThanOrEqual(88);
 
     await handle.click();
     await expect(panel).toHaveClass(/sheet-full/);
