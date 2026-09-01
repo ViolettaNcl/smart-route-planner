@@ -107,9 +107,10 @@ What this project is meant to demonstrate:
   compliance.
 - **Route order optimization** — Nearest Neighbor construction + 2-opt local
   search (the standard combination for practical TSP instances).
-- **Real road routing** via OSRM — actual road geometry, not straight lines
-  between cities, with a transparent fallback to great-circle distance if the
-  routing service is unavailable.
+- **Real road routing** through a resilient OSRM chain — actual road geometry,
+  a cache for repeated routes, provider failover, and a transparent
+  great-circle fallback only when every road source and recent cached copy is
+  unavailable.
 - **Structured route editor** — independent stop records with stable IDs,
   fixed start/finish, reorder/reverse controls, map picking, and a coordinate-
   backed demo route. Duplicate labels no longer overwrite one another.
@@ -298,9 +299,10 @@ end-to-end), plus deterministic browser and live-production flows. Runs automati
 - OSRM's public demo server only exposes the `driving` profile, so exact
   travel time is available for cars only; walking/transit time is an
   average-speed estimate.
-- OSRM is a free public demo server with no SLA; if it's unreachable, the app
-  transparently falls back to great-circle distance (visibly labeled in the
-  UI).
+- Public OSRM services have no SLA. The project reduces that risk with fresh
+  and stale route caches, a rate-limited Project OSRM → FOSSGIS OSRM chain,
+  and a visible provider label; guaranteed production availability still
+  requires a managed or self-hosted endpoint in `OSRM_ROUTE_ENDPOINTS`.
 - The ML model is trained on a **synthetic** dataset — there's no accumulated
   history of real user decisions to train on. See the honest discussion in
   [`docs/neural_net.md`](docs/neural_net.md).

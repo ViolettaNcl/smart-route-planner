@@ -24,3 +24,9 @@
 // putenv('AI_MODEL_GATEWAY=openai/gpt-5-mini');
 // putenv('AI_MODEL_ANTHROPIC=claude-haiku-4-5-20251001');
 // putenv('AI_MODEL_OPENAI=gpt-5-mini');
+
+// --- Маршрутизация и геокодирование (необязательно) ---
+// Несколько OSRM-compatible endpoint перечисляются по приоритету:
+// putenv('OSRM_ROUTE_ENDPOINTS=https://routing.example.com/route/v1/driving,https://router.project-osrm.org/route/v1/driving');
+// putenv('ROUTING_USER_AGENT=smart-route-planner/2.0 (contact@example.com)');
+// putenv('NOMINATIM_SEARCH_ENDPOINT=https://nominatim.example.com/search');

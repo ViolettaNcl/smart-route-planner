@@ -7,6 +7,7 @@ require __DIR__ . '/../../bootstrap.php';
 use App\Geocoding\FileCache;
 use App\Geocoding\NominatimGeocoder;
 use App\Http\RateLimitGuard;
+use App\Http\RateLimiter;
 use App\ML\TransportPredictor;
 use App\RoutePlanner;
 use App\Routing\CostEstimator;
@@ -98,7 +99,14 @@ try {
             __DIR__ . '/../../src/ML/model_weights.json',
             $modelVariant
         ),
-        roadRouter: new OsrmRoadRouter(),
+        roadRouter: new OsrmRoadRouter(
+            cache: new FileCache(RuntimeStorage::path('routecache')),
+            publicEndpointLimiter: new RateLimiter(
+                RuntimeStorage::path('ratelimit/osrm_upstreams.json'),
+                capacity: 1,
+                refillSeconds: 1,
+            ),
+        ),
         costEstimator: new CostEstimator(),
         logger: $logger,
     );

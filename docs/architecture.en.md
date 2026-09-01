@@ -152,10 +152,11 @@ docker-compose.yml              # Local run / simple VPS deployment
    - returns an error if fewer than two valid points remain;
    - preserves start/finish and optimizes only intermediate points;
    - attempts real road routing via `RoadRouterInterface::route()`
-     (implemented by `OsrmRoadRouter`); if OSRM is unavailable the method
-     returns `null` and the app **transparently falls back** to great-circle
-     distance (`HaversineCalculator`) and straight lines on the map — no
-     crash, no silent error;
+     (implemented by `OsrmRoadRouter`): it checks a fresh file cache first,
+     tries configured OSRM-compatible endpoints in order, and may use a recent
+     stale copy during an outage; only after the whole chain fails does the app
+     **transparently fall back** to great-circle distance
+     (`HaversineCalculator`) and straight lines on the map;
    - predicts the mode of transport with the trained model
      (`TransportPredictor::predict`), feeding it either the road distance or
      the great-circle distance, whichever was available;
@@ -164,8 +165,9 @@ docker-compose.yml              # Local run / simple VPS deployment
    - estimates trip cost (`CostEstimator`) and CO2 emissions
      (`EmissionsEstimator`) based on the predicted transport mode;
    - builds Google Maps and Yandex Maps links.
-4. `api/route.php` returns the result as JSON, including `routing_source`
-   (`osrm_road` or `straight_line`) and the model variant assigned to this
+4. `api/route.php` returns the result as JSON, including `routing_source`,
+   `routing_provider`, `routing_cached`, `routing_cache_status`, and
+   `routing_failover_used`, plus the model variant assigned to this
    visit for the A/B test (`model_variant`: `mlp` or `softmax`, 50/50) — the
    frontend honestly shows the user which data source and which model were
    used.

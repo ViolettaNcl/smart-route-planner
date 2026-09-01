@@ -152,9 +152,39 @@ function populateMapSummary(data) {
     document.getElementById('map-summary-mode').textContent = modeLabels[data.transport.mode]
         || data.transport.mode_ru
         || data.transport.mode;
-    document.getElementById('map-summary-source').textContent = data.routing_source === 'osrm_road'
-        ? t('mapSummaryRoadSource')
-        : t('mapSummaryFallbackSource');
+    document.getElementById('map-summary-source').textContent = routingSourceLabel(data, true);
+}
+
+function routingProviderLabel(provider) {
+    const keys = {
+        osrm_public_demo: 'routingProviderProject',
+        osrm_fossgis_public: 'routingProviderFossgis',
+        osrm_configured: 'routingProviderConfigured',
+        osrm_failover_chain: 'routingProviderFailover',
+    };
+    return t(keys[provider] || 'routingProviderGeneric');
+}
+
+function routingSourceLabel(data, compact = false) {
+    if (!data || data.routing_source !== 'osrm_road') {
+        return compact ? t('mapSummaryFallbackSource') : t('routingStraight');
+    }
+
+    const provider = routingProviderLabel(data.routing_provider);
+    const base = compact
+        ? t('mapSummaryRoadSourceProvider')(provider)
+        : t('routingRoadProvider')(provider);
+    const details = [];
+    if (data.routing_cache_status === 'stale') {
+        details.push(t('routingStaleCache'));
+    } else if (data.routing_cached) {
+        details.push(t('routingFreshCache'));
+    }
+    if (data.routing_failover_used) {
+        details.push(t('routingBackupUsed'));
+    }
+
+    return details.length > 0 ? base + ' · ' + details.join(' · ') : base;
 }
 
 function updateRoutePointCount() {
@@ -382,7 +412,7 @@ function renderResult(data) {
         : t('emissionsNote');
 
     const routingNote = document.getElementById('routing-source-note');
-    routingNote.textContent = data.routing_source === 'osrm_road' ? t('routingOsrm') : t('routingStraight');
+    routingNote.textContent = routingSourceLabel(data);
 
     const confidenceFill = document.getElementById('confidence-fill');
     confidenceFill.style.width = data.transport.confidence + '%';
@@ -1361,7 +1391,7 @@ if ('serviceWorker' in navigator) {
             });
         }
 
-        navigator.serviceWorker.register('service-worker.js?v=12').catch(() => {
+        navigator.serviceWorker.register('service-worker.js?v=13').catch(() => {
             // Если что-то пошло не так (например, http без TLS) — сайт всё равно
             // должен нормально работать, просто без офлайн-кэша.
         });

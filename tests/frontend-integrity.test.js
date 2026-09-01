@@ -62,6 +62,13 @@ for (const character of strippedCss) {
 }
 if (braceDepth !== 0) fail('CSS contains unmatched opening braces');
 
+if (!ids.includes('map-pick-hint') || !cssSource.includes('.map-pick-hint')) {
+    fail('Map picker must use its own compact hint element');
+}
+if (cssSource.includes('.map-picking::after')) {
+    fail('Map picker must not reuse the full-panel ::after overlay');
+}
+
 JSON.parse(fs.readFileSync('public/manifest.webmanifest', 'utf8'));
 
 console.log(`frontend integrity: passed (${ids.length} IDs, ${ruKeys.length} translation keys, assets v${versions[0]})`);

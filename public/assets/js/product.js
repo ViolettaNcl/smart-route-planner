@@ -251,9 +251,11 @@
         });
 
         if (note) {
-            note.textContent = data.routing_source === 'osrm_road'
-                ? text('Данные дорожной сети · ' + (data.routing_provider || 'OSRM'), 'Road network data · ' + (data.routing_provider || 'OSRM'))
-                : text('OSRM недоступен: показан честный прямолинейный fallback', 'OSRM unavailable: showing the honest straight-line fallback');
+            note.textContent = typeof routingSourceLabel === 'function'
+                ? routingSourceLabel(data, true)
+                : (data.routing_source === 'osrm_road'
+                    ? text('Данные дорожной сети · OSRM', 'Road network data · OSRM')
+                    : text('OSRM недоступен: показан честный прямолинейный fallback', 'OSRM unavailable: showing the honest straight-line fallback'));
         }
     }
 
@@ -415,7 +417,7 @@
     }
 
     function renderDraftStops(stops) {
-        if (lastRouteData || !routeMap || typeof maplibregl === 'undefined') return;
+        if (!routeMap || typeof maplibregl === 'undefined') return;
         clearDraftMarkers();
         stops.filter((stop) => Number.isFinite(stop.lat) && Number.isFinite(stop.lon)).forEach((stop, index) => {
             const element = document.createElement('span');
@@ -438,6 +440,7 @@
 
     window.enableRouteMapPick = function (enabled) {
         mapPickEnabled = Boolean(enabled);
+        const pickHint = document.getElementById('map-pick-hint');
         hide(mapPlaceholder);
         show(mapContainer);
         show(mapModeControl);
@@ -448,6 +451,10 @@
             routeMap.resize();
         }
         mapPanel?.classList.toggle('map-picking', mapPickEnabled);
+        if (pickHint) {
+            if (mapPickEnabled) show(pickHint);
+            else hide(pickHint);
+        }
         if (mapPickEnabled) setSheetState('peek');
     };
 
