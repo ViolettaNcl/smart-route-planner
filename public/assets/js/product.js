@@ -475,7 +475,7 @@
         document.body.classList.toggle('route-sheet-open', expandedModal);
 
         const backgroundTargets = [
-            ...document.querySelectorAll('body > :not(.layout):not(script)'),
+            ...document.querySelectorAll('.container > :not(.layout):not(script)'),
             ...document.querySelectorAll('.layout > :not(.panel)'),
         ];
         backgroundTargets.forEach((element) => {

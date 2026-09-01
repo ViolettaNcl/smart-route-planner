@@ -210,7 +210,10 @@ test('mobile editor opens full screen in one tap and closes to its tab', async (
     await expect(content).toBeVisible();
     await expect(page.locator('body')).toHaveClass(/route-sheet-open/);
     await expect(page.locator('.map-panel')).toHaveJSProperty('inert', true);
-    await expect(panel).toHaveCSS('transform', 'none');
+    await expect.poll(async () => {
+        const box = await panel.boundingBox();
+        return box ? Math.round(box.y) : null;
+    }).toBe(0);
     const fullBox = await panel.boundingBox();
     expect(fullBox).not.toBeNull();
     expect(fullBox.x).toBe(0);
