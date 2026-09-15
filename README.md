@@ -17,7 +17,7 @@
   <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="MIT License">
 </p>
 
-**[Live demo →](https://smart-route-planner-violettancls-projects.vercel.app)**
+**[Live demo →](https://smart-route-planner-vn.vercel.app/)**
 
 </div>
 
