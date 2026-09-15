@@ -259,7 +259,7 @@ Open `http://localhost:8080`. The same image is suitable for a VPS deployment
 | Testing | PHP unit/HTTP suite, Playwright browser flows, scheduled production smoke |
 | Rate limiting | Token bucket from scratch (`App\Http\RateLimiter`), file storage with `flock` |
 | CI/CD | GitHub Actions — lint + tests on PHP 8.1/8.2/8.3, server smoke test, `composer audit`, automated Docker build, Dependabot |
-| Deployment | [Vercel Functions](https://smart-route-planner-violettancls-projects.vercel.app) with PHP 8.3 runtime; Docker/VPS and shared hosting/XAMPP remain supported |
+| Deployment | [Vercel Functions](https://smart-route-planner-vn.vercel.app/) with PHP 8.3 runtime; Docker/VPS and shared hosting/XAMPP remain supported |
 
 ## Documentation
 
