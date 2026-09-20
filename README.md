@@ -19,6 +19,8 @@
 
 **[Live demo →](https://smart-route-planner-vn.vercel.app/)**
 
+**Developer:** [Violetta Nicolaou](https://github.com/ViolettaNcl)
+
 </div>
 
 ---
