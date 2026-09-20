@@ -19,6 +19,8 @@
 
 **[Живое демо →](https://smart-route-planner-violettancls-projects.vercel.app)**
 
+**Developer:** [Violetta Nicolaou](https://github.com/ViolettaNcl)
+
 </div>
 
 ---
