@@ -1,173 +1,182 @@
-# Installation and Setup
+# Setup & Operations Guide
 
-[🇷🇺 Русская версия](setup_guide.md)
+[Русская версия](setup_guide.md) · [Documentation hub](README.md)
 
-The project **needs no database**. Composer is optional (only needed for the
-alternative class-autoloading path — the built-in `bootstrap.php`
-autoloader works fine without it).
+## Requirements
 
-## Option 1 — PHP's built-in server (fastest)
+### Native PHP
 
-Requires only PHP 8.1+ with the `curl`, `json`, and `mbstring` extensions
-(usually enabled by default).
+- PHP 8.1+
+- extensions: `curl`, `json`, `mbstring`
+
+### Development checks
+
+- Composer
+- Node.js 22.x
+- npm
+
+### Containers
+
+- Docker
+- Docker Compose
+
+## Clone
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/ViolettaNcl/smart-route-planner.git
 cd smart-route-planner
-
-# The trained model already ships in the repo (src/ML/mlp_weights.json,
-# with src/ML/model_weights.json as a fallback) —
-# you don't need to run training before the first launch.
-php -S localhost:8000 -t public
 ```
 
-Open `http://localhost:8000` in a browser.
+## Local PHP run
 
-## Option 2 — XAMPP (no terminal required)
-
-1. Install [XAMPP](https://www.apachefriends.org/) (make sure the PHP
-   component is selected during installation; MySQL isn't needed, you can
-   uncheck it).
-2. Copy the project folder into `htdocs` (e.g.
-   `C:\xampp\htdocs\smart-route-planner`). The trained model already ships
-   in the repo — no need to retrain before the first run.
-3. Start Apache from the XAMPP control panel.
-4. Open in a browser: `http://localhost/smart-route-planner/public/`.
-
-> Note the `/public/` at the end of the URL — the web-facing part of the app
-> is deliberately kept in its own folder so that `src/` and `bin/` are never
-> directly reachable by URL.
-
-## Option 3 — Docker / docker-compose (simplest for server deployment)
-
-Requires only Docker and Docker Compose — no PHP install on the host at all,
-everything is already inside the image.
+The production API uses a front controller. To mirror that dispatch locally, use the router already used by HTTP integration tests:
 
 ```bash
-git clone <repository-url>
-cd smart-route-planner
+php -S 127.0.0.1:8000 -t public tests/Http/router.php
+```
 
-# var/ needs to be writable by the process inside the container (www-data,
-# typically UID 33) — with a bind mount from the host, the host directory's
-# permissions override whatever the Dockerfile set. The simplest fix for a
-# demo/portfolio project:
-chmod -R 777 var
+Open:
 
-# API keys are optional — see .env.example. Without them, the AI trip
-# assistant runs in its honest rule-based fallback mode.
+```text
+http://127.0.0.1:8000
+```
+
+Health:
+
+```text
+http://127.0.0.1:8000/api/health.php
+```
+
+Serving only `public/` without the router may not reproduce the production `/api/<endpoint>.php` dispatch model.
+
+## Environment
+
+Copy the example when using Docker or when you want a reference for supported settings:
+
+```bash
 cp .env.example .env
+```
 
+The core app does not require an LLM key. The assistant can fall back to rule-based output.
+
+Optional configuration areas include AI provider credentials, Nominatim-compatible search, OSRM endpoints/cache, public URL and the model administrative token.
+
+Never commit real secrets.
+
+## Docker
+
+```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-Open `http://localhost:8080` (the port is set in `.env`, see `PORT`).
+Open `http://localhost:8080`.
 
-The trained model already ships in the repo — no need to retrain before the
-first run. Changes under `var/` (the geocoding cache, rate-limiter state,
-A/B statistics, correction queue, and CLI model registry) survive
-`docker compose restart` and image rebuilds, thanks to the volume defined in
-`docker-compose.yml`.
+`docker-compose.yml` mounts `./var` so file-backed state can survive container recreation on a persistent host.
 
-**Deploying the same image to a VPS:** copy the repository to the server (or
-set up `git pull` + `docker compose up --build -d` via CI/CD), and put
-Nginx/Caddy in front of the container as a reverse proxy for HTTPS (Let's
-Encrypt) — the container itself just serves plain HTTP on the port set in
-`PORT`.
-
-## Option 4 — Vercel Functions (production demo)
-
-The repository includes `vercel.json` and a single PHP front controller at
-`api/index.php` for every API route, keeping the deployment within the free
-Hobby plan's Serverless Functions limit. Import the GitHub repository into
-Vercel and keep Root Directory set to `./`. The build uses the
-`vercel-php@0.7.4` community runtime (PHP 8.3).
-
-No separate OpenAI/Anthropic key is required on Vercel: the AI assistant uses
-the automatically refreshed `VERCEL_OIDC_TOKEN` with Vercel AI Gateway. The
-default model is `openai/gpt-5-mini`; override it with `AI_MODEL_GATEWAY`.
-If a static `AI_GATEWAY_API_KEY` is preferred, store it only in Project
-Settings → Environment Variables and never commit it to GitHub.
-
-Vercel Functions use ephemeral storage. The app automatically redirects its
-cache, rate limiter, logs, A/B stats, and correction queue to `/tmp`; these
-values may reset after a cold start or a new deployment. Public requests
-never mutate the model weights included in the deployment.
-
-## Verifying the setup
+## Backend quality checks
 
 ```bash
-php tests/run.php
+composer install
+composer check
 ```
 
-The final line should contain `failed: 0`; the number of passing checks grows
-with the feature set.
+`composer check` currently combines:
 
-## Optional — AI trip assistant with a real LLM
+```text
+cs-check
+phpstan
+test
+```
 
-With zero configuration, the AI trip note already works — offline, via clear
-rules (see `docs/neural_net.md` and `src/AI/TripAssistantService.php`). To
-have a real LLM through Vercel AI Gateway, Anthropic, or OpenAI generate the
-text instead, set a key using one of two methods:
-
-**Method A — environment variable** (PHP's built-in server):
+Individual commands:
 
 ```bash
-export AI_GATEWAY_API_KEY=...   # or ANTHROPIC_API_KEY / OPENAI_API_KEY
-php -S localhost:8000 -t public
+composer run cs-check
+composer run stan
+composer run test
 ```
 
-**Method B — a local config file** (more convenient for XAMPP, where
-`export` isn't always easy to pass through to Apache):
+## Frontend / browser tests
 
 ```bash
-cp config.local.php.example config.local.php
+npm ci
+npx playwright install chromium
+npm run test:frontend
+npm run test:e2e
 ```
 
-Open `config.local.php` and uncomment the line with the key you want to use.
-The file is already in `.gitignore` — the key won't accidentally end up in
-git.
-
-Both methods are equivalent; the key isn't required for any other part of
-the app (routing, weather, and points of interest all work with no keys at
-all).
-
-## Optional — Composer
-
-If you have Composer installed and prefer the standard autoloader:
+## Production smoke
 
 ```bash
-composer dump-autoload
+npm run smoke:production
 ```
 
-This generates `vendor/autoload.php`, which `bootstrap.php` automatically
-loads if the file exists. Nothing needs to be installed via Composer — the
-project has no external PHP dependencies.
+GitHub Actions also runs production smoke on a schedule and after successful main-branch CI.
 
-## Common Issues
+## Retrain the transport model
 
-**"Model weights file not found"** — the trained weights already ship in the
-repo (`src/ML/mlp_weights.json`, `src/ML/model_weights.json`), so this error
-means the file is corrupted or was deleted. Fix: `php bin/train_model.php`
-(regenerates both files).
+```bash
+php bin/train_model.php
+```
 
-**Cities aren't found / suddenly stopped resolving** — Nominatim sometimes
-temporarily throttles heavy request volume. The app handles this gracefully
-(the city just lands in the "skipped" list with a warning), but the
-geocoding cache (`var/geocache/`) won't re-request cities it has already
-resolved.
+Do this only when intentionally regenerating model artifacts.
 
-**The route is drawn as straight lines instead of following roads** — this
-isn't a bug: the public OSRM demo server is occasionally temporarily
-unavailable or rate-limits frequent requests. The app is specifically
-designed not to crash in that case — it falls back to great-circle
-distance, and the UI honestly labels this under the result.
+## Vercel model
 
-**PHP warns about `curl` or `json`** — these extensions are usually enabled
-by default in XAMPP; if disabled, enable them in `php.ini`
-(`extension=curl`, `extension=json`) and restart Apache.
+`vercel.json`:
 
-**Docker: "Permission denied" writing to var/** — a bind mount from the host
-(`./var:/var/www/html/var` in `docker-compose.yml`) means the actual write
-permissions are determined by the host directory, not by what the
-`Dockerfile` set inside the image. Fix: `chmod -R 777 var` on the host
-before the first run (see "Option 3 — Docker" above).
+- defines one PHP function at `api/index.php`;
+- serves static assets from `public/`;
+- maps `/api/<name>.php` to the front controller;
+- defines basic security/cache headers.
+
+Repository homepage: **https://smart-route-planner-vn.vercel.app/**
+
+## Persistence
+
+On Docker/VPS, preserve `var/` and ensure runtime write access.
+
+On Vercel, do not treat the local filesystem as durable shared storage.
+
+## Troubleshooting
+
+### UI loads but local API returns 404
+
+Use:
+
+```bash
+php -S 127.0.0.1:8000 -t public tests/Http/router.php
+```
+
+### Routing/geodata is missing
+
+Check outbound network access, provider availability, environment overrides, logs and limiter state. The app may intentionally degrade to fallback behavior.
+
+### AI narrative reports fallback
+
+That is valid when no supported LLM provider/credential is available.
+
+### `var/` write errors
+
+Ensure the runtime user can write to required `var/` paths.
+
+### Browser tests fail before execution
+
+```bash
+npm ci
+npx playwright install chromium
+```
+
+## Release checklist
+
+```text
+[ ] composer check
+[ ] npm run test:frontend
+[ ] npm run test:e2e
+[ ] health endpoint
+[ ] route calculation
+[ ] degraded-provider behavior
+[ ] production smoke
+[ ] no secrets committed
+```

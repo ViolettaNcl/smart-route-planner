@@ -1,354 +1,285 @@
 <div align="center">
 
-# Smart Route Planner
+<img src="docs/assets/hero.svg" alt="Smart Route Planner — интеллектуальная маршрутизация, ML и отказоустойчивая работа с геоданными" width="100%">
 
-### Планировщик маршрута по нескольким городам: TSP-оптимизация, нейросеть, обученная с нуля, и реальная маршрутизация по дорогам
+<br>
 
-[🇬🇧 English version](README.md)
+[![Демо](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=vercel&logoColor=white)](https://smart-route-planner-vn.vercel.app/)
+[![CI](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/ci.yml)
+[![Production Smoke](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/production-smoke.yml?branch=main&style=for-the-badge&label=PROD%20SMOKE)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/production-smoke.yml)
+[![PHP](https://img.shields.io/badge/PHP-8.1%20%E2%86%92%208.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](composer.json)
+[![Docker](https://img.shields.io/badge/DOCKER-READY-2496ED?style=for-the-badge&logo=docker&logoColor=white)](Dockerfile)
+[![License](https://img.shields.io/github/license/ViolettaNcl/smart-route-planner?style=for-the-badge)](LICENSE)
 
-<p>
-  <a href="https://smart-route-planner-violettancls-projects.vercel.app"><img src="https://img.shields.io/badge/demo-live-brightgreen?style=flat-square&logo=vercel&logoColor=white" alt="Live demo"></a>
-  <img src="https://github.com/violettancl/smart-route-planner/actions/workflows/ci.yml/badge.svg" alt="CI">
-  <img src="https://img.shields.io/badge/Docker-ready-2496ED?style=flat-square&logo=docker&logoColor=white" alt="Docker">
-  <img src="https://img.shields.io/badge/PHP-8.1+-777BB4?style=flat-square&logo=php&logoColor=white" alt="PHP 8.1+">
-  <img src="https://img.shields.io/badge/UI-🇷🇺_RU_%2F_🇬🇧_EN-4c9aff?style=flat-square" alt="Двуязычный интерфейс">
-  <img src="https://img.shields.io/badge/ML-MLP_%2B_Backprop_с_нуля-orange?style=flat-square" alt="Нейросеть с нуля">
-  <img src="https://img.shields.io/badge/tests-unit_%2B_HTTP_%2B_browser-success?style=flat-square" alt="Unit, HTTP и browser-тесты">
-  <img src="https://img.shields.io/badge/license-MIT-green?style=flat-square" alt="Лицензия MIT">
-</p>
+### Инженерный планировщик маршрутов
 
-**[Живое демо →](https://smart-route-planner-violettancls-projects.vercel.app)**
+**TSP-оптимизация · реальные дороги · ML с нуля · explainability · fallback-архитектура · production verification**
 
-**Developer:** [Violetta Nicolaou](https://github.com/ViolettaNcl)
+[Открыть демо](https://smart-route-planner-vn.vercel.app/) ·
+[Архитектура](docs/architecture.md) ·
+[API](docs/api-reference.md) ·
+[ML](docs/neural_net.md) ·
+[English](README.md)
 
 </div>
 
 ---
 
-## Содержание
+## Почему проект интересен технически
 
-- [О проекте](#о-проекте)
-- [Ключевые акценты](#ключевые-акценты)
-- [Возможности](#возможности)
-- [Быстрый старт](#быстрый-старт)
-- [Стек технологий](#стек-технологий)
-- [Документация](#документация)
-- [Тесты](#тесты)
-- [Известные ограничения](#известные-ограничения)
-- [Лицензия](#лицензия)
+Smart Route Planner — не декоративная карта. Это компактная система маршрутизации, в которой классические алгоритмы, геосервисы, собственный ML-стек и production-подход к отказам соединены в один продукт.
+
+| Область | Что реализовано |
+|---|---|
+| **Оптимизация** | Nearest Neighbor + 2-opt с сохранением стартовой и конечной точек |
+| **Road routing** | OSRM, альтернативы, turn-by-turn, provider failover и прозрачный straight-line fallback |
+| **Machine Learning** | MLP с backpropagation и Softmax baseline на PHP без ML-framework |
+| **ML quality** | train/validation/test, confusion matrix, F1, log loss, Brier score, ECE, cross-validation |
+| **Explainability** | probabilities, model comparison, local sensitivity, counterfactual-style analysis, Model Card |
+| **Geodata** | Nominatim, Open-Meteo, Overpass, MapLibre/OpenFreeMap |
+| **Reliability** | token bucket, graceful degradation, health check, HTTP integration tests, production smoke |
+| **Delivery** | один Vercel PHP front controller, Docker, GitHub Actions, Playwright |
+
+> Ограничения не скрыты: synthetic dataset, heuristic optimization, public providers и ephemeral serverless storage документируются как реальные инженерные trade-offs.
 
 ---
 
-## О проекте
+## Система в одном экране
 
-Пользователь собирает поездку из отдельных адресов или точек на карте,
-сравнивает реальные дорожные альтернативы и пошаговые инструкции, а сервис
-**оптимизирует промежуточные остановки**, сохраняя старт и финиш. Он также
-**предсказывает подходящий транспорт нейросетью, обученной с нуля**, показывает
-маршрут на **интерактивной карте** и формирует **AI-совет по поездке**
-(привалы, ночёвки, погода) через LLM.
+```mermaid
+flowchart LR
+    U[Browser / PWA] --> UI[MapLibre UI<br/>Route editor]
+    UI --> FC[api/index.php<br/>единый front controller]
+    FC --> EP[15 логических API endpoint]
+    EP --> RP[RoutePlanner]
+    EP --> ML[ML services]
+    EP --> GEO[Geodata]
+    EP --> AI[Trip assistant]
+    RP --> OPT[Nearest Neighbor + 2-opt]
+    RP --> OSRM[OSRM routing chain]
+    RP --> PRED[MLP / Softmax]
+    GEO --> NOM[Nominatim]
+    GEO --> MET[Open-Meteo]
+    GEO --> OVP[Overpass]
+    AI --> GW[Vercel AI Gateway]
+    AI --> DIRECT[Anthropic / OpenAI]
+    AI --> RULES[Rule-based fallback]
+    OSRM -. unavailable .-> FALL[Great-circle fallback]
+```
 
-Это полная переработка более ранней процедурной версии: один файл с
-захардкоженными весами превратился в слоистое PHP-приложение с внедрением
-зависимостей, эвристика TSP заменила «ехать в порядке ввода», а нейросеть,
-обученная градиентным спуском, — вручную подобранные веса классификатора.
+На Vercel используется одна PHP Serverless Function — `api/index.php`. Она распределяет запросы между **15 логическими endpoint** в `server/endpoints/`.
 
-## Ключевые акценты
+<img src="docs/assets/route-motion.gif" alt="Animated runtime flow Smart Route Planner" width="100%">
 
-Что этот проект призван показать:
-
-- **Нейросеть, реализованная с нуля** — прямой и обратный проход,
-  градиентный спуск, кросс-энтропийная функция потерь — всё на обычных
-  массивах PHP и циклах, без ML-фреймворков. Честно сравнена с линейным
-  baseline через confusion matrix, precision/recall/F1 по классам и 5-fold
-  кросс-валидацию — подробный разбор в [`docs/neural_net.md`](docs/neural_net.md),
-  включая случай, когда линейная модель побеждает.
-- **Классическая алгоритмическая задача, решённая по правилам** — TSP через
-  Nearest Neighbor + 2-opt, а не полный перебор перестановок.
-- **Инженерная зрелость помимо ML** — автоматические unit-, HTTP-, browser- и
-  production-smoke тесты, свой rate limiter (token bucket, а не наивное фиксированное окно), CI-матрица
-  на трёх версиях PHP и архитектура с осознанным «мягким отказом»: любой
-  внешний сервис (маршрутизация, погода, точки интереса, LLM) может быть
-  недоступен, не ломая основной сценарий.
+---
 
 ## Возможности
 
+### Маршрут
+
+- Адреса или координаты, максимум **12 точек**.
+- Оптимизация intermediate stops при фиксированных старте и финише.
+- Реальная дорожная геометрия OSRM, alternatives и maneuver data.
+- Время, стоимость и CO₂.
+- Google Maps / Яндекс Карты.
+- Share links без БД.
+- GeoJSON / GPX / KML.
+- Локальная история и избранное.
+
+### Карта/UI
+
+- MapLibre GL JS + OpenFreeMap.
+- 2D / 3D, buildings, terrain/hillshade.
+- Анимированная route scene с `prefers-reduced-motion`.
+- SVG fallback при проблемах с WebGL.
+- RU / EN, light / dark, PWA.
+
 ### ML / AI
 
-- **Нейросеть (MLP) с backpropagation, написанным с нуля** — скрытый слой
-  (`tanh`) + softmax-выход, прямой и обратный проход вручную на PHP.
-  Обучается и честно сравнивается с линейным baseline-классификатором
-  (`bin/train_model.php` печатает точность обеих моделей).
-- **Строгая оценка модели** — отдельные train/validation/test-части,
-  confusion matrix, precision/recall/F1 по каждому классу, macro-F1,
-  log loss, multiclass Brier score, calibration/ECE и 5-fold
-  кросс-валидация (`App\ML\ModelEvaluator`).
-- **AI-ассистент поездки** — после расчёта маршрута LLM через Vercel AI
-  Gateway (OIDC на Vercel), Anthropic или OpenAI генерирует короткий комментарий:
-  где сделать привал, нужна ли ночёвка на длинном перегоне, на что обратить
-  внимание в погоде. Без ключа API — офлайн rule-based fallback, интерфейс
-  честно помечает, какой вариант сработал.
-- **ML Lab 2.0** — персональное объяснение текущего прогноза, вероятности
-  всех классов, отрыв лидера, локальное влияние признаков, ближайшая смена
-  решения, похожие примеры, what-if, рейтинг по времени/цене/CO₂ и
-  одновременное сравнение MLP ⇄ Softmax.
-- **Аудит и визуализация обучения** — фильтруемая карта решений с текущим
-  маршрутом, калибровочная кривая, Model Card, forward-pass нейросети,
-  кривые loss и шесть воспроизводимых снимков эволюции границы. Отчёт
-  `src/ML/training_report.json` связан с весами их хешами.
-- **AI-планировщик поездки по дням (K-Means)** — для длинных маршрутов
-  реализация K-Means с нуля (метод Ллойда) делит поездку на сбалансированные
-  по километражу дни, не переставляя города. В отличие от MLP/softmax это
-  **обучение без учителя** — принципиально другая задача ML, вообще без
-  размеченных примеров (`App\ML\KMeansDaySplitter`, `api/day_plan.php`).
+- MLP с backpropagation, написанный с нуля на PHP.
+- Softmax baseline.
+- K-Means day splitter как отдельная unsupervised задача.
+- A/B статистика MLP vs Softmax.
+- Model insights / quality / Model Card.
+- Review queue вместо небезопасной смены production weights в HTTP request.
+- LLM через Vercel AI Gateway / Anthropic / OpenAI или rule-based fallback.
 
-### Геоданные и планирование
+---
 
-- **Геокодирование** через OpenStreetMap Nominatim, с диск-кэшем и
-  соблюдением лимитов API.
-- **Оптимизация порядка точек** — эвристика Nearest Neighbor + локальный
-  поиск 2-opt (стандартная связка для практических задач TSP).
-- **Реальный маршрут по дорогам** через отказоустойчивую OSRM-цепочку —
-  настоящая геометрия трассы, кэш повторных маршрутов, резервный провайдер и
-  честный откат на дистанцию «по воздуху», только если недоступны все дорожные
-  источники и свежая резервная копия.
-- **Структурированный редактор маршрута** — независимые точки со стабильными
-  ID, фиксированные старт/финиш, перестановка, разворот, выбор на карте и
-  демо с координатами. Одинаковые подписи больше не перетираются.
-- **Реальные альтернативы и пошаговая навигация** — сервер запрашивает у OSRM
-  варианты и steps; выбор карточки сразу меняет линию, дистанцию, время,
-  стоимость и CO₂ без нового запроса.
-- **Оценка времени в пути** — точное время от OSRM для автомобиля,
-  приблизительное (по средней скорости) для пешей/общественной поездки.
-- **Точки интереса рядом с маршрутом** (АЗС, кафе, рестораны, отели) через
-  бесплатный Overpass API — без ключа API.
-- **Погода по маршруту** через Open-Meteo (без ключа) — предупреждения о
-  сильном дожде, жаре, морозе или грозе у каждой точки.
-- **Map-first карта** на MapLibre GL JS — бесплатные векторные стили
-  OpenFreeMap Fiord/Liberty без API-ключа занимают около 70% desktop-сцены и
-  видны ещё до первого расчёта. Map HUD показывает активный стиль и
-  метрическую шкалу.
-- **Мгновенное переключение 2D ⇄ 3D** — объёмные здания, необязательные
-  рельеф/hillshade Mapterhorn, globe-атмосфера и фирменное освещение без
-  перезагрузки карты.
-- **Выразительная, но честная сцена маршрута** — после ответа API камера
-  показывает реальную геометрию, линия прорисовывается поэтапно, появляются
-  маркеры и сводка с фактическими данными. При `prefers-reduced-motion`
-  хореография пропускается.
-- **Устойчивый fallback карты** — при отказе WebGL, базового стиля, terrain
-  или 3D-слоя показывается SVG-вид из координат ответа, а результаты маршрута
-  остаются доступными.
-- **Актуальная PWA-оболочка после deployment** — версионированные CSS/JS и
-  network-first загрузка HTML не дают service worker удерживать старый UI.
-- **Ссылка-шеринг маршрута без базы данных** — весь маршрут кодируется
-  прямо в URL; открытие ссылки сразу пересчитывает и показывает поездку.
-- Готовые ссылки на Google Maps и Яндекс.Карты.
-- **Оценка стоимости поездки** — топливо (расход × дистанция × цена литра)
-  или примерная цена билета для общественного транспорта, параметры
-  редактируются прямо в интерфейсе.
-- **PWA** — устанавливается на телефон, service worker кэширует оболочку
-  интерфейса для офлайн-работы.
-- **Геокодирование с соблюдением политики провайдера** — публичный Nominatim
-  вызывается только при явной отправке формы. Подсказки включаются лишь для
-  отдельно настроенного совместимого self-hosted/contracted endpoint.
-- **Локальная библиотека маршрутов и открытые форматы** — история, избранное,
-  GeoJSON/GPX/KML, печать, Web Share и классические ссылки на карты.
-- **Мобильный map-first bottom sheet** — состояния peek/half/full сохраняют
-  карту видимой и поддерживают клавиатуру, Escape и reduced motion.
-- **Полная локализация интерфейса (русский / английский)** — переключение в
-  один клик, без перезагрузки страницы, выбор сохраняется в `localStorage`
-  (`public/assets/js/i18n.js`).
-- **Светлая / тёмная тема** — сохраняется между визитами; стиль карты и
-  график границы решений модели перекрашиваются вместе с интерфейсом
-  (`public/assets/js/ui.js`).
-- Ни одной перезагрузки страницы — каждый расчёт это `fetch`-запрос к JSON API.
-- **Живой A/B-тест MLP vs softmax** — каждому визиту случайно (50/50)
-  назначается одна из двух моделей на весь визит; после расчёта маршрута
-  можно отметить, угадала ли модель, — статистика по обеим моделям копится в
-  `var/ab_stats.json`, дедуплицируется по событию и показывается с 95%
-  Wilson-интервалом. Победитель не объявляется до минимальной выборки.
-- **Безопасный feedback pipeline** — исправление не меняет общие веса в
-  HTTP-запросе. Оно попадает в обезличенную append-only очередь; CLI-релиз
-  требует ручного allow-list, отсеивает аномальные кластеры, проверяет
-  macro-F1/log loss/F1 каждого класса на holdout, версионирует модель,
-  архивирует использованные события и поддерживает rollback.
-- **Многоуровневая проверка** — unit- и HTTP-тесты, детерминированный
-  Playwright-сценарий продукта и плановый post-deploy production smoke.
+## Как проходит route request
 
-### Инженерная часть
+1. Browser отправляет точки в `/api/route.php`.
+2. `api/index.php` dispatch запрос к логическому endpoint.
+3. Точки без координат геокодируются.
+4. Intermediate stops оптимизируются при включённой опции.
+5. OSRM строит road route.
+6. При отказе OSRM система отдаёт great-circle fallback вместо полного отказа.
+7. MLP или Softmax делает route-level prediction.
+8. Считаются duration, cost, emissions.
+9. Weather, POI, model insights и AI narrative добавляются независимо.
 
-- **Rate limiter (token bucket), написанный с нуля** — непрерывное
-  пополнение токенов вместо наивного счётчика с фиксированным окном (у
-  которого есть известная уязвимость на границе окна). Защищает бесплатные
-  лимиты Nominatim/Overpass/Open-Meteo, ML-диагностику и feedback endpoint от
-  злоупотреблений (`App\Http\RateLimiter`).
-- **HTTP-интеграционные тесты отдельно от unit-тестов** — `tests/Http/`
-  поднимает настоящий `php -S` и стучится по HTTP в реальные `api/*.php`:
-  разбор запроса, коды ответа (405/422/429), `error_code` в JSON, поведение
-  rate limiter'а на живом запросе — то, что unit-тесты в принципе не
-  проверяют.
-- **CI** ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) — на
-  каждый push/PR: `php -l` по всей кодовой базе, полный прогон тестов на PHP
-  8.1/8.2/8.3, smoke-тест поднятия встроенного сервера, `composer audit`.
-- **Автосборка Docker-образа**
-  ([`.github/workflows/docker-publish.yml`](.github/workflows/docker-publish.yml))
-  на каждый push в `main`.
-- **Dependabot** ([`.github/dependabot.yml`](.github/dependabot.yml)) —
-  еженедельная проверка обновлений версий GitHub Actions.
+---
 
-## Быстрый старт
+## Быстрый запуск
 
-Проще всего — открыть **[живое демо](https://smart-route-planner-violettancls-projects.vercel.app)**, установка не нужна.
+### Демо
 
-Для локального запуска: без базы данных, Composer опционален. Обученные
-веса модели уже включены в репозиторий (`src/ML/mlp_weights.json`) —
-переобучать перед первым запуском не нужно.
+**https://smart-route-planner-vn.vercel.app/**
+
+### Локально
+
+PHP **8.1+**, `curl`, `json`, `mbstring`.
 
 ```bash
-# 1. Запустите встроенный сервер PHP (документ-рут — папка public/)
-php -S localhost:8000 -t public
-
-# 2. Откройте в браузере
-http://localhost:8000
+php -S 127.0.0.1:8000 -t public tests/Http/router.php
 ```
 
-Переобучить модель самостоятельно (например, после правок в `Dataset.php`):
+Открыть `http://127.0.0.1:8000`.
+
+### Docker
 
 ```bash
-php bin/train_model.php
-```
-
-AI-ассистент поездки и точки интереса/погода работают из коробки без
-настройки (офлайн-fallback для AI-текста, бесплатные Overpass/Open-Meteo для
-геоданных). На Vercel ассистент использует AI Gateway с автоматически
-управляемым `VERCEL_OIDC_TOKEN`. Локально или на VPS задайте Gateway-ключ
-либо ключ прямого провайдера:
-
-```bash
-export AI_GATEWAY_API_KEY=...        # или ANTHROPIC_API_KEY / OPENAI_API_KEY
-php -S localhost:8000 -t public
-```
-
-Установка через XAMPP (без терминала) и детали деплоя — в
-[`docs/setup_guide.md`](docs/setup_guide.md).
-
-### Или через Docker (PHP на хосте не нужен)
-
-```bash
-cp .env.example .env      # ключи API опциональны, см. комментарии в файле
-chmod -R 777 var          # см. docs/setup_guide.md — почему это нужно при bind-mount
+cp .env.example .env
 docker compose up --build
 ```
 
-Откройте `http://localhost:8080`. Тот же образ подходит и для деплоя на VPS
-— подробнее в [`docs/setup_guide.md`](docs/setup_guide.md).
+Открыть `http://localhost:8080`.
 
-## Стек технологий
+---
 
-| Слой | Технологии |
-|---|---|
-| Backend | PHP 8.1+, ООП, PSR-4 (`composer.json` с фолбэк-автозагрузчиком) |
-| Геокодирование | OpenStreetMap Nominatim, cURL, файловый кэш |
-| Маршрутизация | OSRM (реальные дороги) с откатом на Haversine + Nearest Neighbor/2-opt |
-| Machine Learning | MLP (скрытый слой + backprop с нуля) и softmax-регрессия — градиентный спуск, кросс-энтропийная потеря; K-Means (метод Ллойда, с нуля) — unsupervised-кластеризация плана по дням |
-| AI-ассистент | Vercel AI Gateway (OIDC), резерв Anthropic/OpenAI, rule-based офлайн-fallback |
-| Геоданные | Overpass API (точки интереса), Open-Meteo (погода) — оба без ключа |
-| Frontend | Vanilla JS (fetch API), MapLibre GL JS + OpenFreeMap (векторная 2D/3D-карта без ключа), Chart.js, CSS custom properties (темизация) |
-| Тестирование | Собственный минимальный test-runner (без зависимостей); HTTP-интеграционные тесты через `php -S` |
-| Rate limiting | Token bucket с нуля (`App\Http\RateLimiter`), файловое хранилище с `flock` |
-| CI/CD | GitHub Actions — lint + тесты на PHP 8.1/8.2/8.3, smoke-тест сервера, `composer audit`, автосборка Docker-образа, Dependabot |
-| Деплой | [Vercel Functions](https://smart-route-planner-violettancls-projects.vercel.app) с PHP 8.3 runtime; также поддерживаются Docker/VPS и shared-хостинг/XAMPP |
-
-## Документация
-
-| Документ | Описание |
-|---|---|
-| [`docs/architecture.md`](docs/architecture.md) ([EN](docs/architecture.en.md)) | Архитектура, поток данных, структура классов |
-| [`docs/neural_net.md`](docs/neural_net.md) ([EN](docs/neural_net.en.md)) | Устройство модели, обучение, метрики качества |
-| [`docs/business_analysis.md`](docs/business_analysis.md) ([EN](docs/business_analysis.en.md)) | Сценарии использования, бизнес-логика |
-| [`docs/setup_guide.md`](docs/setup_guide.md) ([EN](docs/setup_guide.en.md)) | Установка: XAMPP, Docker или встроенный сервер PHP |
-| [`docs/openapi.yaml`](docs/openapi.yaml) | OpenAPI 3.0-спека для всех 15 эндпоинтов `api/*.php` |
-
-## Тесты
+## Quality gates
 
 ```bash
-php tests/run.php
+composer install
+composer check
 npm ci
+npx playwright install chromium
+npm run test:frontend
 npm run test:e2e
+```
+
+Production smoke:
+
+```bash
 npm run smoke:production
 ```
 
-Покрыты: расчёт расстояния (Haversine), оптимизация порядка точек
-(TSP-эвристика), обучение и точность MLP/softmax, строгая оценка (confusion
-matrix, precision/recall/F1, k-fold кросс-валидация), unsupervised-кластеризация
-плана по дням (K-Means: сбалансированность, монотонность порядка,
-детерминированность), rate limiter (token bucket: разные клиенты, пополнение
-во времени, fail-open при сбое диска), оценка времени в пути и стоимости
-поездки, полная интеграция `RoutePlanner`, HTTP-интеграционные тесты через
-настоящий `php -S` (405/422/429, `error_code`, day-plan/decision-boundary/
-explain/assistant «живьём»), а также browser- и production-сценарии. Гоняются автоматически в CI
-на каждый push (см. [`.github/workflows/ci.yml`](.github/workflows/ci.yml)).
+CI проверяет PHP **8.1 / 8.2 / 8.3**.
 
-## Известные ограничения
+---
 
-- Оптимизация маршрута — эвристика (Nearest Neighbor + 2-opt), не
-  гарантирует математически точный оптимум, но для 3–20 точек даёт результат,
-  очень близкий к нему, за миллисекунды.
-- Публичный демо-сервер OSRM поддерживает только профиль `driving`, поэтому
-  точное время в пути доступно лишь для автомобиля; для пешей/общественной
-  поездки — приблизительная оценка по средней скорости.
-- Публичные OSRM-сервисы не дают SLA. Проект снижает риск через свежий/резервный
-  кэш, ограниченную по частоте цепочку Project OSRM → FOSSGIS OSRM и явную
-  подпись фактического источника; для гарантированного production SLA всё ещё
-  нужен свой или managed OSRM-compatible endpoint в `OSRM_ROUTE_ENDPOINTS`.
-- ML-модель обучена на **синтетическом** датасете — накопленной статистики
-  реальных решений пользователей нет. Честное объяснение — в
-  [`docs/neural_net.md`](docs/neural_net.md).
-- MLP не даёт драматического прироста точности над линейным softmax-baseline
-  на этих двух признаках — разница в пределах статистического шума на
-  валидационной выборке. Разобрано с цифрами по нескольким seed в
-  [`docs/neural_net.md`](docs/neural_net.md): ценность MLP здесь — в
-  архитектуре и заделе на будущее, а не в текущем скачке accuracy.
-- AI-совет использует Vercel AI Gateway при наличии `VERCEL_OIDC_TOKEN` или
-  `AI_GATEWAY_API_KEY`, затем пробует прямые ключи Anthropic/OpenAI и только
-  после этого переходит на rule-based fallback. Источник виден в интерфейсе.
-- Overpass (точки интереса) и Open-Meteo (погода) — бесплатные публичные
-  сервисы без SLA; при недоступности приложение просто не показывает этот
-  блок, не ломая расчёт основного маршрута.
-- История и избранное хранятся локально в браузере; аккаунтов и синхронизации
-  между устройствами пока нет. GeoJSON/GPX/KML экспортируются на клиенте.
-- Стоимость поездки — грубая прикидка (`src/Routing/CostEstimator.php`), а
-  не точный расчёт: реальные цены на топливо/билеты сильно зависят от
-  региона и перевозчика. Валюта фиксирована (₽), параметры расчёта
-  редактируются в интерфейсе.
-- Rate limiter определяет клиента по IP (с опциональным доверием
-  `X-Forwarded-For`) — этого достаточно для одного сервера, но при деплое за
-  балансировщиком/CDN стоит проверить настройку (см. докблок
-  `App\Http\ClientIdentity`). Состояние лимитера — локальный файл, не
-  шарится между серверами при горизонтальном масштабировании.
-- Геокодирование адресов и дорожный расчёт требуют интернет (Nominatim/OSRM).
-  Точки с карты уже содержат координаты; при отказе OSRM показывается явно
-  подписанный прямолинейный fallback.
-- Локализация (RU/EN) переводит весь интерфейс, но сообщения об ошибках
-  сервера переводятся только для известных `error_code`; нестандартные
-  ошибки показываются как есть (на русском).
-- В репозитории уже есть canonical metadata, `robots.txt` и `sitemap.xml`, но
-  текущий Vercel alias всё ещё получает платформенный заголовок
-  `X-Robots-Tag: noindex`. После подключения индексируемого production/custom
-  domain нужно задать `APP_PUBLIC_URL` и включить строгую production-проверку
-  через `REQUIRE_INDEXABLE=1`.
-- План по дням (K-Means) балансирует дни **по километражу**, а не по факту
-  наличия жилья в конкретном городе — это подсказка «где примерно
-  заканчивается разумный день вождения», а не бронирование отеля.
-  Кластеризация всегда учитывает исходный порядок точек (день не может
-  «прыгнуть» назад) — см. докблок `App\ML\KMeansDaySplitter`.
-- Файловое хранилище Vercel Functions временное: кэш геокодирования,
-  статистика A/B-теста, pending-очередь отзывов, rate-limit и логи могут сбрасываться
-  после cold start или деплоя. Основной расчёт маршрута от этого не зависит.
-- Цвет заставки PWA (`manifest.webmanifest`, `theme_color`/`background_color`)
-  фиксирован тёмным — переключатель темы в интерфейсе на него не влияет, он
-  рисуется до загрузки JS.
+## API architecture
 
-## Лицензия
+Публичные URL:
 
-[MIT](LICENSE)
+```text
+/api/route.php
+/api/weather.php
+/api/assistant.php
+...
+```
+
+На Vercel:
+
+```text
+/api/index.php?endpoint=<logical-endpoint>
+```
+
+| Группа | Endpoint |
+|---|---|
+| Routing | `route`, `day_plan` |
+| Geodata | `suggest`, `poi`, `weather` |
+| AI | `assistant` |
+| ML Insight | `decision_boundary`, `explain`, `model_insights`, `model_quality` |
+| ML Feedback/Admin | `ab_stats`, `feedback`, `learn`, `reset_model` |
+| Ops | `health` |
+
+Подробнее: [API Reference](docs/api-reference.md) и [`docs/openapi.yaml`](docs/openapi.yaml).
+
+---
+
+## Архитектурные принципы
+
+- **Core path before enrichment:** weather/POI/LLM не должны ломать route planning.
+- **Transparent fallback:** приложение показывает фактический источник/fallback.
+- **Observable ML:** quality/explainability встроены в проект.
+- **Feedback ≠ instant promotion:** пользовательский feedback не переписывает production weights сразу.
+- **Deployment constraints explicit:** единый Vercel front controller — сознательный design choice.
+
+---
+
+## Структура
+
+```text
+smart-route-planner/
+├─ api/index.php
+├─ server/endpoints/
+├─ public/
+├─ src/
+│  ├─ AI/
+│  ├─ Geocoding/
+│  ├─ Geodata/
+│  ├─ Http/
+│  ├─ ML/
+│  ├─ Routing/
+│  ├─ Support/
+│  └─ Weather/
+├─ bin/
+├─ tests/
+├─ docs/
+├─ Dockerfile
+├─ docker-compose.yml
+└─ vercel.json
+```
+
+---
+
+## Документация
+
+| Документ | Назначение |
+|---|---|
+| [Documentation Hub](docs/README.md) | Навигация |
+| [Архитектура](docs/architecture.md) | Boundaries, runtime flow, deployment |
+| [API Reference](docs/api-reference.md) | Endpoint и front-controller routing |
+| [ML Engineering](docs/neural_net.md) | MLP, baseline, evaluation, explainability |
+| [Setup & Operations](docs/setup_guide.md) | Local, Docker, Vercel, troubleshooting |
+| [Product Analysis](docs/business_analysis.md) | Product value и ограничения |
+| [`docs/openapi.yaml`](docs/openapi.yaml) | Существующий machine-readable contract |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution workflow |
+| [SECURITY.md](SECURITY.md) | Security model |
+
+---
+
+## Ограничения
+
+<details><summary><b>TSP</b></summary>
+Nearest Neighbor + 2-opt — heuristic, а не гарантия global optimum.
+</details>
+
+<details><summary><b>ML dataset</b></summary>
+Transport classifier обучен на synthetic data; его метрики нельзя переносить на реальное массовое поведение пользователей без дополнительных данных.
+</details>
+
+<details><summary><b>Public providers</b></summary>
+OSRM, Nominatim, Overpass и Open-Meteo не дают production SLA.
+</details>
+
+<details><summary><b>Vercel storage</b></summary>
+Serverless filesystem временный; file-backed state может сбрасываться при deploy/cold start.
+</details>
+
+---
+
+## Автор
+
+**Violetta Nicolaou** · [@ViolettaNcl](https://github.com/ViolettaNcl)
+
+## License
+
+[MIT License](LICENSE)
+
+<div align="center">
+
+Если инженерный подход оказался полезным, ⭐ помогает другим разработчикам найти проект.
+
+</div>

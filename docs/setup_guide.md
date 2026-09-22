@@ -1,168 +1,153 @@
-# Установка и запуск
+# Setup & Operations
 
-[🇬🇧 English version](setup_guide.en.md)
+[English](setup_guide.en.md) · [Documentation hub](README.md)
 
-Проекту **не нужна база данных**. Composer — опционален (нужен только для
-альтернативного способа автозагрузки классов, встроенный автозагрузчик
-`bootstrap.php` работает и без него).
+## Требования
 
-## Вариант 1 — встроенный сервер PHP (быстрее всего)
+### PHP
 
-Требуется только PHP 8.1+ с расширениями `curl`, `json` и `mbstring`
-(обычно включены по умолчанию).
+- PHP 8.1+
+- `curl`, `json`, `mbstring`
+
+### Проверки
+
+- Composer
+- Node.js 22.x
+- npm
+
+### Docker
+
+- Docker
+- Docker Compose
+
+## Clone
 
 ```bash
-git clone <ссылка-на-репозиторий>
+git clone https://github.com/ViolettaNcl/smart-route-planner.git
 cd smart-route-planner
-
-# Обученная модель уже включена в репозиторий (src/ML/mlp_weights.json,
-# с резервным src/ML/model_weights.json) —
-# запускать обучение перед первым стартом не обязательно.
-php -S localhost:8000 -t public
 ```
 
-Откройте `http://localhost:8000` в браузере.
+## Локальный запуск
 
-## Вариант 2 — XAMPP (без терминала)
-
-1. Установите [XAMPP](https://www.apachefriends.org/) (компонент PHP должен
-   быть выбран при установке; MySQL не нужен, можно снять галочку).
-2. Скопируйте папку проекта в `htdocs` (например,
-   `C:\xampp\htdocs\smart-route-planner`). Обученная модель уже включена в
-   репозиторий — переобучать перед первым запуском не нужно.
-3. Запустите Apache через панель управления XAMPP.
-4. Откройте в браузере: `http://localhost/smart-route-planner/public/`.
-
-> Обратите внимание на `/public/` в конце адреса — веб-часть приложения
-> специально вынесена в отдельную папку, чтобы папки `src/` и `bin/` не были
-> напрямую доступны по URL.
-
-## Вариант 3 — Docker / docker-compose (проще всего для деплоя на сервер)
-
-Требуется только Docker и Docker Compose — PHP на хосте не нужен вообще,
-всё уже внутри образа.
+Production API работает через front controller. Для корректного local dispatch используйте router из HTTP integration tests:
 
 ```bash
-git clone <ссылка-на-репозиторий>
-cd smart-route-planner
+php -S 127.0.0.1:8000 -t public tests/Http/router.php
+```
 
-# var/ должна быть доступна на запись процессу внутри контейнера (www-data,
-# обычно UID 33) — при bind-mount с хоста права host-директории "побеждают"
-# то, что выставил Dockerfile. Проще всего для демо/пет-проекта:
-chmod -R 777 var
+Открыть `http://127.0.0.1:8000`.
 
-# Ключи API опциональны — см. .env.example. Без них AI-ассистент поездки
-# работает в честном rule-based fallback-режиме.
+Health: `http://127.0.0.1:8000/api/health.php`.
+
+Простой запуск `php -S ... -t public` без router может не повторять production API routing.
+
+## Environment
+
+```bash
 cp .env.example .env
+```
 
+LLM key не обязателен: assistant имеет rule-based fallback.
+
+Опциональные настройки: AI providers, Nominatim-compatible search, OSRM chain/cache, public URL, model admin token.
+
+Не коммитьте secrets.
+
+## Docker
+
+```bash
+cp .env.example .env
 docker compose up --build
 ```
 
-Откройте `http://localhost:8080` (порт задаётся в `.env`, см. `PORT`).
+Открыть `http://localhost:8080`.
 
-Обученная модель уже включена в репозиторий — переобучать перед первым
-запуском не нужно. Изменения в `var/` (geocode-кэш, состояние rate limiter'а,
-A/B-статистика, очередь исправлений и CLI-реестр версий) переживают
-`docker compose restart` и пересборку образа благодаря volume в
-`docker-compose.yml`.
+`./var` монтируется как persistent volume на обычном host.
 
-**Деплой на VPS этим же образом:** скопируйте репозиторий на сервер (или
-настройте `git pull` + `docker compose up --build -d` через CI/CD), поставьте
-Nginx/Caddy перед контейнером как reverse proxy для HTTPS (Let's Encrypt) —
-сам контейнер отдаёт обычный HTTP на порт, заданный в `PORT`.
-
-## Вариант 4 — Vercel Functions (production demo)
-
-Репозиторий уже содержит `vercel.json` и единый PHP front controller
-`api/index.php`, через который проходят все API-маршруты. Это укладывается в
-лимит Serverless Functions бесплатного Hobby-плана. Импортируйте
-GitHub-репозиторий в Vercel и оставьте Root Directory равным `./`. Сборка
-использует community runtime `vercel-php@0.7.4` (PHP 8.3).
-
-На Vercel отдельный OpenAI/Anthropic-ключ не нужен: AI-помощник использует
-автоматически обновляемый `VERCEL_OIDC_TOKEN` для Vercel AI Gateway. Модель
-по умолчанию — `openai/gpt-5-mini`; её можно изменить переменной
-`AI_MODEL_GATEWAY`. При необходимости статический `AI_GATEWAY_API_KEY`
-добавляется только в Project Settings → Environment Variables, но никогда
-не коммитится в GitHub.
-
-Vercel Functions используют временную файловую систему. Приложение само
-перенаправляет кэш, rate limiter, логи, A/B-статистику и очередь исправлений
-в `/tmp`; эти данные могут сбрасываться после cold start или нового деплоя.
-Публичные запросы никогда не изменяют включённые в деплой веса модели.
-
-## Проверка, что всё работает
+## Backend checks
 
 ```bash
-php tests/run.php
+composer install
+composer check
 ```
 
-Итоговая строка должна содержать `провалено: 0`; число пройденных проверок
-растёт вместе с функциональностью.
-
-## Опционально — AI-ассистент поездки с настоящей LLM
-
-Без какой-либо настройки AI-совет по поездке уже работает — офлайн, по
-понятным правилам (см. `docs/neural_net.md` и `src/AI/TripAssistantService.php`).
-Чтобы локально текст генерировала настоящая LLM через Vercel AI Gateway,
-Anthropic или OpenAI, задайте ключ одним из двух способов:
-
-**Способ А — переменная окружения** (встроенный сервер PHP):
+Отдельно:
 
 ```bash
-export AI_GATEWAY_API_KEY=...   # либо ANTHROPIC_API_KEY / OPENAI_API_KEY
-php -S localhost:8000 -t public
+composer run cs-check
+composer run stan
+composer run test
 ```
 
-**Способ Б — локальный конфиг-файл** (удобнее для XAMPP, где `export` не
-всегда просто прокинуть в Apache):
+## Frontend / browser
 
 ```bash
-cp config.local.php.example config.local.php
+npm ci
+npx playwright install chromium
+npm run test:frontend
+npm run test:e2e
 ```
 
-Откройте `config.local.php` и раскомментируйте нужную строку с ключом. Файл
-уже в `.gitignore` — ключ не попадёт в git случайно.
-
-Оба способа равнозначны, ключ не обязателен ни для одного другого раздела
-приложения (маршрутизация, погода, точки интереса работают без ключей вообще).
-
-## Опционально — composer
-
-Если у вас установлен Composer и вы предпочитаете стандартный автозагрузчик:
+## Production smoke
 
 ```bash
-composer dump-autoload
+npm run smoke:production
 ```
 
-Это создаст `vendor/autoload.php`, который `bootstrap.php` автоматически
-подключит, если файл существует. Устанавливать через Composer ничего не
-нужно — у проекта нет внешних PHP-зависимостей.
+## Retrain
 
-## Частые проблемы
+```bash
+php bin/train_model.php
+```
 
-**"Файл весов модели не найден"** — обученные веса уже включены в
-репозиторий (`src/ML/mlp_weights.json`, `src/ML/model_weights.json`), так что
-эта ошибка означает повреждённый или удалённый файл. Восстановить: `php
-bin/train_model.php` (перегенерирует оба файла заново).
+Для первого запуска это не требуется.
 
-**Города не находятся / внезапно перестали работать** — Nominatim иногда
-временно ограничивает интенсивные запросы. Приложение это переживает
-корректно (город просто попадёт в список «пропущенных» с предупреждением),
-но geocoding-кэш (`var/geocache/`) уже найденные города повторно не запрашивает.
+## Vercel
 
-**Маршрут строится по прямым линиям, а не по дорогам** — это не ошибка:
-публичный демо-сервер OSRM иногда временно недоступен или ограничивает
-частые запросы. Приложение специально спроектировано так, чтобы в этом
-случае не падать, а откатываться на расчёт «по воздуху» — интерфейс честно
-покажет пометку об этом под результатом расчёта.
+`vercel.json` создаёт одну PHP function `api/index.php`, раздаёт static assets из `public/` и route `/api/<name>.php` в front controller.
 
-**PHP предупреждает про `curl` или `json`** — эти расширения обычно включены
-в XAMPP по умолчанию; если отключены, включите их в `php.ini`
-(`extension=curl`, `extension=json`) и перезапустите Apache.
+Production URL: **https://smart-route-planner-vn.vercel.app/**
 
-**В Docker: "Permission denied" при записи в var/** — bind-mount с хоста
-(`./var:/var/www/html/var` в `docker-compose.yml`) означает, что реальные
-права на запись определяет host-директория, а не то, что выставил
-`Dockerfile` внутри образа. Решение — `chmod -R 777 var` на хосте перед
-первым запуском (см. "Вариант 3 — Docker" выше).
+## Persistence
+
+На Docker/VPS сохраняйте `var/` и write permissions. На Vercel filesystem ephemeral.
+
+## Troubleshooting
+
+### Local API 404
+
+```bash
+php -S 127.0.0.1:8000 -t public tests/Http/router.php
+```
+
+### Нет routing/geodata
+
+Проверить network, provider, env, logs, limiter state. Fallback может быть ожидаемым.
+
+### AI работает в fallback
+
+Корректно при отсутствии provider credential.
+
+### `var/` write error
+
+Проверить filesystem permissions.
+
+### Playwright не стартует
+
+```bash
+npm ci
+npx playwright install chromium
+```
+
+## Release checklist
+
+```text
+[ ] composer check
+[ ] npm run test:frontend
+[ ] npm run test:e2e
+[ ] health endpoint
+[ ] route flow
+[ ] degraded provider behavior
+[ ] production smoke
+[ ] no secrets committed
+```
