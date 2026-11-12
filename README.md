@@ -4,7 +4,7 @@
 
 <br>
 
-[![Live Demo](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=vercel&logoColor=white)]([https://smart-route-planner-vn.vercel.app/](https://smart-route-planner-wiwk.onrender.com))
+[![Live Demo](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=vercel&logoColor=white)]([https://smart-route-planner-wiwk.onrender.com)
 [![CI](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/ci.yml)
 [![Production Smoke](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/production-smoke.yml?branch=main&style=for-the-badge&label=PROD%20SMOKE)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/production-smoke.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.1%20%E2%86%92%208.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](composer.json)
@@ -15,7 +15,7 @@
 
 **TSP optimization · real road routing · from-scratch ML · explainability · resilient fallbacks · production verification**
 
-[Live demo]([https://smart-route-planner-vn.vercel.app/](https://smart-route-planner-wiwk.onrender.com)) ·
+[Live demo](https://smart-route-planner-wiwk.onrender.com) ·
 [Architecture](docs/architecture.en.md) ·
 [API reference](docs/api-reference.en.md) ·
 [ML notes](docs/neural_net.en.md) ·
