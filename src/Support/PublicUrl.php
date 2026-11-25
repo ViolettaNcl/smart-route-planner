@@ -20,6 +20,12 @@ final class PublicUrl
             return $normalized;
         }
 
+        $renderPublicUrl = getenv('RENDER_EXTERNAL_URL');
+        $normalized = self::normalize(is_string($renderPublicUrl) ? $renderPublicUrl : '');
+        if ($normalized !== null) {
+            return $normalized;
+        }
+
         $vercelProduction = getenv('VERCEL_PROJECT_PRODUCTION_URL');
         $candidate = is_string($vercelProduction) ? trim($vercelProduction) : '';
         if ($candidate !== '' && !str_contains($candidate, '://')) {
