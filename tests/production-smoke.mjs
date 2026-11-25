@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 
-const baseUrl = (process.env.PRODUCTION_URL || 'https://smart-route-planner-violettancls-projects.vercel.app').replace(/\/$/, '');
+const baseUrl = (process.env.PRODUCTION_URL || 'https://smart-route-planner-wiwk.onrender.com').replace(/\/$/, '');
 const expectedCommit = String(process.env.EXPECTED_COMMIT_SHA || '').trim().slice(0, 12);
 const waitMs = Math.max(0, Number(process.env.SMOKE_WAIT_MS || 0));
 const requireIndexable = process.env.REQUIRE_INDEXABLE === '1';

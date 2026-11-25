@@ -57,7 +57,7 @@ $runtimeDir = RuntimeStorage::baseDir();
 $checks['runtime_storage_writable'] = is_dir($runtimeDir) && is_writable($runtimeDir);
 
 $healthy = !in_array(false, $checks, true);
-$commitSha = trim((string) (getenv('VERCEL_GIT_COMMIT_SHA') ?: getenv('GIT_COMMIT_SHA') ?: 'local'));
+$commitSha = trim((string) (getenv('RENDER_GIT_COMMIT') ?: getenv('VERCEL_GIT_COMMIT_SHA') ?: getenv('GIT_COMMIT_SHA') ?: 'local'));
 $version = $commitSha === 'local' ? 'local' : substr($commitSha, 0, 12);
 $geocoder = new NominatimGeocoder();
 $router = new OsrmRoadRouter();

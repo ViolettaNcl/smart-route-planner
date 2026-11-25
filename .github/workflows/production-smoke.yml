@@ -30,7 +30,7 @@ jobs:
           node-version: 22
       - name: Verify public production flow
         env:
-          PRODUCTION_URL: https://smart-route-planner-violettancls-projects.vercel.app
+          PRODUCTION_URL: https://smart-route-planner-wiwk.onrender.com
           EXPECTED_COMMIT_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
           SMOKE_WAIT_MS: '240000'
         run: node tests/production-smoke.mjs
