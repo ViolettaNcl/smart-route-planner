@@ -38,7 +38,7 @@ Smart Route Planner — не декоративная карта. Это ком�
 | **Explainability** | probabilities, model comparison, local sensitivity, counterfactual-style analysis, Model Card |
 | **Geodata** | Nominatim, Open-Meteo, Overpass, MapLibre/OpenFreeMap |
 | **Reliability** | token bucket, graceful degradation, health check, HTTP integration tests, production smoke |
-| **Delivery** | один Vercel PHP front controller, Docker, GitHub Actions, Playwright |
+| **Delivery** | Render, Docker, GitHub Actions, Playwright |
 
 > Ограничения не скрыты: synthetic dataset, heuristic optimization, public providers и ephemeral serverless storage документируются как реальные инженерные trade-offs.
 
@@ -61,13 +61,12 @@ flowchart LR
     GEO --> NOM[Nominatim]
     GEO --> MET[Open-Meteo]
     GEO --> OVP[Overpass]
-    AI --> GW[Vercel AI Gateway]
     AI --> DIRECT[Anthropic / OpenAI]
     AI --> RULES[Rule-based fallback]
     OSRM -. unavailable .-> FALL[Great-circle fallback]
 ```
 
-На Vercel используется одна PHP Serverless Function — `api/index.php`. Она распределяет запросы между **15 логическими endpoint** в `server/endpoints/`.
+На Render Apache направляет API-запросы в `api/index.php`, который распределяет их между **15 логическими endpoint** в `server/endpoints/`.
 
 <img src="docs/assets/route-motion.gif" alt="Animated runtime flow Smart Route Planner" width="100%">
 
@@ -102,7 +101,7 @@ flowchart LR
 - A/B статистика MLP vs Softmax.
 - Model insights / quality / Model Card.
 - Review queue вместо небезопасной смены production weights в HTTP request.
-- LLM через Vercel AI Gateway / Anthropic / OpenAI или rule-based fallback.
+- LLM через Anthropic или OpenAI с резервным режимом на правилах.
 
 ---
 
@@ -179,11 +178,7 @@ CI проверяет PHP **8.1 / 8.2 / 8.3**.
 ...
 ```
 
-На Vercel:
-
-```text
-/api/index.php?endpoint=<logical-endpoint>
-```
+Apache передаёт эти запросы в `api/index.php`, где задан список доступных обработчиков.
 
 | Группа | Endpoint |
 |---|---|
@@ -204,7 +199,7 @@ CI проверяет PHP **8.1 / 8.2 / 8.3**.
 - **Transparent fallback:** приложение показывает фактический источник/fallback.
 - **Observable ML:** quality/explainability встроены в проект.
 - **Feedback ≠ instant promotion:** пользовательский feedback не переписывает production weights сразу.
-- **Deployment constraints explicit:** единый Vercel front controller — сознательный design choice.
+- **Deployment constraints explicit:** Apache раздаёт интерфейс из `public/` и передаёт API-запросы единому PHP-обработчику.
 
 ---
 
@@ -228,8 +223,7 @@ smart-route-planner/
 ├─ tests/
 ├─ docs/
 ├─ Dockerfile
-├─ docker-compose.yml
-└─ vercel.json
+└─ docker-compose.yml
 ```
 
 ---
@@ -242,7 +236,7 @@ smart-route-planner/
 | [Архитектура](docs/architecture.md) | Boundaries, runtime flow, deployment |
 | [API Reference](docs/api-reference.md) | Endpoint и front-controller routing |
 | [ML Engineering](docs/neural_net.md) | MLP, baseline, evaluation, explainability |
-| [Setup & Operations](docs/setup_guide.md) | Local, Docker, Vercel, troubleshooting |
+| [Setup & Operations](docs/setup_guide.md) | Local, Docker, Render, troubleshooting |
 | [Product Analysis](docs/business_analysis.md) | Product value и ограничения |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Существующий machine-readable contract |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Contribution workflow |
@@ -264,8 +258,8 @@ Transport classifier обучен на synthetic data; его метрики н�
 OSRM, Nominatim, Overpass и Open-Meteo не дают production SLA.
 </details>
 
-<details><summary><b>Vercel storage</b></summary>
-Serverless filesystem временный; file-backed state может сбрасываться при deploy/cold start.
+<details><summary><b>Хранение данных</b></summary>
+Для сохранения файлового состояния между деплоями нужен постоянный диск или том.
 </details>
 
 ---

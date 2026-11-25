@@ -13,7 +13,7 @@ use App\Http\SafeHttpClient;
  *   не запрашивается по сети;
  * - выдерживается пауза между запросами согласно политике использования
  *   Nominatim (не более 1 запроса в секунду);
- * - сетевой слой не зависит жёстко от ext-curl: на serverless/Vercel есть
+ * - сетевой слой не зависит жёстко от ext-curl: есть
  *   fallback на PHP streams, чтобы отсутствие curl не роняло весь API.
  */
 class NominatimGeocoder implements GeocoderInterface

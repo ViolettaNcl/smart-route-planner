@@ -46,7 +46,7 @@ Smart Route Planner is not a map mock-up. It is a compact routing system that co
 | **Reliability** | token-bucket rate limiting, graceful degradation, health checks, HTTP integration tests and production smoke |
 | **Delivery** | Render, Docker, GitHub Actions and Playwright product-flow tests |
 
-> The project documents its limitations instead of hiding them: synthetic training data, heuristic optimization, public providers and ephemeral serverless storage are treated as engineering constraints.
+> The project documents its limitations instead of hiding them: synthetic training data, heuristic optimization, public providers and runtime persistence are treated as engineering constraints.
 
 ---
 
@@ -67,15 +67,13 @@ flowchart LR
     GEO --> NOM[Nominatim]
     GEO --> MET[Open-Meteo]
     GEO --> OVP[Overpass]
-    AI --> GW[Vercel AI Gateway]
     AI --> DIRECT[Anthropic / OpenAI]
     AI --> RULES[Rule-based fallback]
     OSRM -. unavailable .-> FALL[Great-circle fallback]
-    GW -. unavailable .-> DIRECT
     DIRECT -. unavailable .-> RULES
 ```
 
-The Vercel deployment exposes one PHP Serverless Function, `api/index.php`, which dispatches **15 logical endpoints** to `server/endpoints/`.
+On Render, Apache passes public API requests to `api/index.php`, which dispatches **15 logical endpoints** to `server/endpoints/`.
 
 <img src="docs/assets/route-motion.gif" alt="Animated Smart Route Planner request pipeline" width="100%">
 
@@ -110,7 +108,7 @@ The Vercel deployment exposes one PHP Serverless Function, `api/index.php`, whic
 - A/B feedback statistics for MLP vs. Softmax.
 - Model insight / quality surfaces and Model Card data.
 - Reviewed feedback queue rather than unsafe request-time weight mutation.
-- Trip narrative through Vercel AI Gateway, Anthropic/OpenAI, or a rule-based fallback.
+- Trip narrative through Anthropic, OpenAI, or a rule-based fallback.
 
 ---
 
@@ -200,11 +198,7 @@ Public URLs keep the familiar endpoint form:
 ...
 ```
 
-On Vercel they are routed through:
-
-```text
-/api/index.php?endpoint=<logical-endpoint>
-```
+Apache forwards these requests to the allow-listed dispatcher in `api/index.php`.
 
 | Domain | Endpoints |
 |---|---|
@@ -234,7 +228,7 @@ Evaluation and model-insight tooling are part of the repository, not hidden behi
 User feedback is queued and reviewed rather than directly rewriting shared weights during inference.
 
 ### Deployment constraints are explicit
-The single Vercel PHP front controller is a deliberate serverless architecture choice.
+Apache serves the UI from `public/` and forwards API requests to a shared PHP dispatcher.
 
 ---
 
@@ -243,7 +237,7 @@ The single Vercel PHP front controller is a deliberate serverless architecture c
 ```text
 smart-route-planner/
 ├─ api/
-│  └─ index.php                 # Vercel front controller
+│  └─ index.php                 # API front controller
 ├─ server/
 │  └─ endpoints/                # 15 logical API handlers
 ├─ public/
@@ -265,8 +259,7 @@ smart-route-planner/
 │  └─ e2e/
 ├─ docs/
 ├─ Dockerfile
-├─ docker-compose.yml
-└─ vercel.json
+└─ docker-compose.yml
 ```
 
 ---
@@ -279,7 +272,7 @@ smart-route-planner/
 | [Architecture](docs/architecture.en.md) | Boundaries, runtime path and deployment model |
 | [API reference](docs/api-reference.en.md) | Endpoint and front-controller behavior |
 | [ML engineering](docs/neural_net.en.md) | MLP, baseline, evaluation, explainability and release discipline |
-| [Setup & operations](docs/setup_guide.en.md) | Local, Docker, Vercel and troubleshooting |
+| [Setup & operations](docs/setup_guide.en.md) | Local, Docker, Render and troubleshooting |
 | [Product analysis](docs/business_analysis.en.md) | User value and product boundaries |
 | [`docs/openapi.yaml`](docs/openapi.yaml) | Existing machine-readable API contract |
 | [Contributing](CONTRIBUTING.md) | Change workflow and quality gates |
@@ -311,9 +304,9 @@ Public OSRM, Nominatim, Overpass and Open-Meteo services do not provide a produc
 </details>
 
 <details>
-<summary><b>Serverless persistence</b></summary>
+<summary><b>Runtime persistence</b></summary>
 
-Vercel runtime storage is ephemeral. File-backed caches, logs, limiter state and feedback can reset across deployments or cold starts.
+File-backed state needs a persistent disk or volume to survive redeployments.
 
 </details>
 

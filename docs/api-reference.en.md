@@ -10,7 +10,7 @@ Client-facing API paths use:
 /api/<endpoint>.php
 ```
 
-On Vercel, `vercel.json` routes them to the single `api/index.php` front controller, which dispatches to `server/endpoints/<endpoint>.php` using an explicit allow-list.
+Apache routes them to the single `api/index.php` front controller, which dispatches to `server/endpoints/<endpoint>.php` using an explicit allow-list.
 
 ## Logical endpoints
 
@@ -56,13 +56,13 @@ The generic front-controller exception path returns `INTERNAL_ERROR` and logs se
 
 The application uses a file-backed token bucket. It is useful for a single-instance deployment and provider-quota protection, but it is not a distributed cross-node rate limiter.
 
-## Vercel routing
+## Apache routing
 
 ```text
 /api/route.php
         │
         ▼
-/api/index.php?endpoint=route
+api/index.php
         │
         ▼
 server/endpoints/route.php

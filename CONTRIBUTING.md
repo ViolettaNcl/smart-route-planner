@@ -37,7 +37,7 @@ A focused PR should:
 
 ### Public API
 
-Public endpoint URLs use `/api/<endpoint>.php`. Vercel dispatches those through `api/index.php`. Do not expose `server/endpoints/` as a new public URL scheme without an explicit architecture decision.
+Public endpoint URLs use `/api/<endpoint>.php`. Apache dispatches those through `api/index.php`. Do not expose `server/endpoints/` as a new public URL scheme without an explicit architecture decision.
 
 ### External providers
 

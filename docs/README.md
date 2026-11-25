@@ -4,7 +4,7 @@
 
 **Architecture · API · ML · Operations · Product boundaries**
 
-[English README](../README.md) · [Русский README](../README.ru.md) · [Live demo](https://smart-route-planner-vn.vercel.app/)
+[English README](../README.md) · [Русский README](../README.ru.md) · [Live demo](https://smart-route-planner-wiwk.onrender.com/)
 
 </div>
 
@@ -34,7 +34,7 @@
 ### Deployment review
 
 1. [Setup & Operations](setup_guide.en.md)
-2. `vercel.json`
+2. `docker/apache-app.conf`
 3. `Dockerfile` / `docker-compose.yml`
 4. `.github/workflows/production-smoke.yml`
 

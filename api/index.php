@@ -1,12 +1,7 @@
 <?php
 
 /**
- * Single Vercel PHP front controller.
- *
- * All public API endpoints are routed through this one function so the
- * Vercel Hobby deployment stays well below the Serverless Function limit.
- * Endpoint implementations live outside any /api directory to prevent
- * Vercel from auto-detecting each implementation file as a separate function.
+ * Dispatches public API URLs to the corresponding allowed PHP handler.
  */
 
 $projectRoot = dirname(__DIR__);

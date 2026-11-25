@@ -102,15 +102,18 @@ php bin/train_model.php
 
 Для первого запуска это не требуется.
 
-## Vercel
+## Render
 
-`vercel.json` создаёт одну PHP function `api/index.php`, раздаёт static assets из `public/` и route `/api/<name>.php` в front controller.
+Используйте Docker Web Service и Dockerfile из репозитория. Apache раздаёт
+`public/` и передаёт `/api/<name>.php` в `api/index.php`.
 
-Production URL: **https://smart-route-planner-vn.vercel.app/**
+Демо: **https://smart-route-planner-wiwk.onrender.com/**
 
-## Persistence
+## Хранение данных
 
-На Docker/VPS сохраняйте `var/` и write permissions. На Vercel filesystem ephemeral.
+Для сохранения файлов между деплоями используйте постоянный диск или том.
+На Render задайте `APP_RUNTIME_DIR` как доступный на запись путь на этом
+диске. В Docker Compose каталог `var/` монтируется с хоста.
 
 ## Troubleshooting
 

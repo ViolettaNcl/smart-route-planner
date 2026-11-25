@@ -5,7 +5,7 @@ namespace Tests\Http;
 /**
  * Мини-обвязка для HTTP-интеграционных тестов: поднимает встроенный
  * веб-сервер PHP (`php -S`) в отдельном процессе с document root public/
- * и test-router'ом, который повторяет Vercel-маршрутизацию API через
+ * и test-router'ом, который повторяет маршрутизацию Apache API через
  * единый api/index.php front controller.
  *
  * Зачем это отдельно от обычных unit-тестов (см. RoutePlannerTest и др.):

@@ -20,7 +20,7 @@ The intended web document root is `public/`. Internal source, test and administr
 
 ### API front controller
 
-Vercel API traffic is dispatched by `api/index.php` through an explicit endpoint allow-list.
+Apache API traffic is dispatched by `api/index.php` through an explicit endpoint allow-list.
 
 ### Administrative model reset
 
@@ -48,6 +48,6 @@ Geocoding, routing, weather, POI and LLM integrations cross the application boun
 
 ## Security headers
 
-The Vercel configuration defines baseline headers including `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` and HSTS.
+The Apache configuration defines baseline headers including `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` and HSTS.
 
 Deployment-specific review is still required for CSP, proxy trust and domain configuration.

@@ -24,14 +24,7 @@ final class PublicUrl
             return $normalized;
         }
 
-        $vercelProduction = getenv('VERCEL_PROJECT_PRODUCTION_URL');
-        $candidate = is_string($vercelProduction) ? trim($vercelProduction) : '';
-        if ($candidate !== '' && !str_contains($candidate, '://')) {
-            $candidate = 'https://' . $candidate;
-        }
-        $normalized = self::normalize($candidate);
-
-        return $normalized ?? self::DEFAULT_URL;
+        return self::DEFAULT_URL;
     }
 
     private static function normalize(string $candidate): ?string

@@ -3,18 +3,10 @@
 namespace App\Http;
 
 /**
- * Tiny dependency-free HTTP GET helper for serverless portability.
+ * Tiny dependency-free HTTP GET helper.
  *
- * The community Vercel PHP runtime has had deployments where ext-curl was
- * unavailable even though local PHP had it. The route planner should degrade
- * gracefully instead of fatalling on curl_init(). We therefore use cURL when
- * the extension exists, and PHP streams only when cURL is unavailable.
- *
- * Important: do not retry the same failed request through streams after cURL
- * already attempted it. On serverless platforms that used to double every
- * upstream timeout (Nominatim/OSRM), which could push a normal route request
- * beyond Vercel's function duration limit and make the browser see a generic
- * network error instead of a JSON response.
+ * Use cURL when available and PHP streams otherwise. Retrying an attempted
+ * request through a second transport can double the provider timeout.
  */
 final class SafeHttpClient
 {
