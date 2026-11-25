@@ -2,6 +2,11 @@
 require_once dirname(__DIR__) . '/bootstrap.php';
 
 $publicUrl = \App\Support\PublicUrl::resolve();
+$coverPath = '/assets/images/route-planner-social.png';
+$mapIllustrationPath = '/assets/images/route-empty-state.png';
+$hasCover = is_file(__DIR__ . $coverPath);
+$hasMapIllustration = is_file(__DIR__ . $mapIllustrationPath);
+$socialImageUrl = $publicUrl . ($hasCover ? $coverPath : '/assets/icons/icon-512.png');
 ?>
 <!DOCTYPE html>
 <html lang="ru">
@@ -16,8 +21,8 @@ $publicUrl = \App\Support\PublicUrl::resolve();
     <meta property="og:title" content="Smart Route Planner">
     <meta property="og:description" content="Соберите маршрут, сравните реальные альтернативы и получите навигационные инструкции.">
     <meta property="og:url" content="<?= htmlspecialchars($publicUrl, ENT_QUOTES, 'UTF-8') ?>/">
-    <meta property="og:image" content="<?= htmlspecialchars($publicUrl, ENT_QUOTES, 'UTF-8') ?>/assets/icons/icon-512.png">
-    <meta name="twitter:card" content="summary">
+    <meta property="og:image" content="<?= htmlspecialchars($socialImageUrl, ENT_QUOTES, 'UTF-8') ?>">
+    <meta name="twitter:card" content="<?= $hasCover ? 'summary_large_image' : 'summary' ?>">
     <script type="application/ld+json"><?= json_encode([
         '@context' => 'https://schema.org',
         '@type' => 'WebApplication',
@@ -273,23 +278,27 @@ $publicUrl = \App\Support\PublicUrl::resolve();
             <div id="map-placeholder" class="map-placeholder">
                 <div class="map-placeholder-card">
                     <div class="map-placeholder-visual" aria-hidden="true">
-                        <svg viewBox="0 0 220 96">
-                            <defs>
-                                <linearGradient id="previewRouteGradient" x1="0" y1="0" x2="1" y2="0">
-                                    <stop offset="0" stop-color="#9d7bff"/>
-                                    <stop offset=".5" stop-color="#48dbe3"/>
-                                    <stop offset="1" stop-color="#ffb547"/>
-                                </linearGradient>
-                                <filter id="previewRouteGlow" x="-30%" y="-80%" width="160%" height="260%">
-                                    <feGaussianBlur stdDeviation="4"/>
-                                </filter>
-                            </defs>
-                            <path class="preview-network" d="M8 72 42 46 74 58 112 24 150 42 210 13M14 21l40 20 42-18 37 50 72-30M28 90l48-36 52 30 41-37"/>
-                            <path class="preview-route-glow" d="M18 74C48 29 79 72 109 43s56-19 92-28" filter="url(#previewRouteGlow)"/>
-                            <path class="preview-route" d="M18 74C48 29 79 72 109 43s56-19 92-28"/>
-                            <circle class="preview-pin preview-pin-start" cx="18" cy="74" r="6"/>
-                            <circle class="preview-pin preview-pin-end" cx="201" cy="15" r="7"/>
-                        </svg>
+                        <?php if ($hasMapIllustration): ?>
+                            <img class="map-placeholder-image" src="<?= htmlspecialchars(ltrim($mapIllustrationPath, '/'), ENT_QUOTES, 'UTF-8') ?>" alt="" width="220" height="165" decoding="async">
+                        <?php else: ?>
+                            <svg viewBox="0 0 220 96">
+                                <defs>
+                                    <linearGradient id="previewRouteGradient" x1="0" y1="0" x2="1" y2="0">
+                                        <stop offset="0" stop-color="#9d7bff"/>
+                                        <stop offset=".5" stop-color="#48dbe3"/>
+                                        <stop offset="1" stop-color="#ffb547"/>
+                                    </linearGradient>
+                                    <filter id="previewRouteGlow" x="-30%" y="-80%" width="160%" height="260%">
+                                        <feGaussianBlur stdDeviation="4"/>
+                                    </filter>
+                                </defs>
+                                <path class="preview-network" d="M8 72 42 46 74 58 112 24 150 42 210 13M14 21l40 20 42-18 37 50 72-30M28 90l48-36 52 30 41-37"/>
+                                <path class="preview-route-glow" d="M18 74C48 29 79 72 109 43s56-19 92-28" filter="url(#previewRouteGlow)"/>
+                                <path class="preview-route" d="M18 74C48 29 79 72 109 43s56-19 92-28"/>
+                                <circle class="preview-pin preview-pin-start" cx="18" cy="74" r="6"/>
+                                <circle class="preview-pin preview-pin-end" cx="201" cy="15" r="7"/>
+                            </svg>
+                        <?php endif; ?>
                     </div>
                     <span class="section-kicker" data-i18n="mapPlaceholderKicker">Интерактивная карта</span>
                     <strong data-i18n="mapPlaceholderTitle">Маршрут оживёт здесь</strong>
