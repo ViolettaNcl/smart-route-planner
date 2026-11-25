@@ -145,13 +145,21 @@ function setRouteScenePhase(phase) {
 function populateMapSummary(data) {
     if (!data || !mapTripSummary) return;
 
-    document.getElementById('map-summary-distance').textContent = data.distance_km + ' км';
+    document.getElementById('map-summary-distance').textContent = data.distance_km + ' ' + t('mapSummaryKm');
     document.getElementById('map-summary-time').textContent = data.duration.label;
 
     const modeLabels = t('transportModes');
     document.getElementById('map-summary-mode').textContent = modeLabels[data.transport.mode]
         || data.transport.mode_ru
         || data.transport.mode;
+    const reason = document.getElementById('map-summary-reason');
+    if (reason) {
+        reason.textContent = data.routing_source !== 'osrm_road'
+            ? t('mapSummaryReasonFallback')
+            : data.selected_route_id && data.selected_route_id !== data.route_options?.[0]?.id
+                ? t('mapSummaryReasonAlternative')
+                : t('mapSummaryReasonPrimary');
+    }
     document.getElementById('map-summary-source').textContent = routingSourceLabel(data, true);
 }
 
@@ -354,6 +362,10 @@ async function calculateRoute(points) {
 
 function setLoading(isLoading) {
     submitButton.disabled = isLoading;
+    for (const id of ['demo-route-button', 'mobile-demo-route-button']) {
+        const button = document.getElementById(id);
+        if (button) button.disabled = isLoading;
+    }
     submitButton.textContent = isLoading ? t('submitLoading') : t('submitIdle');
     submitButton.setAttribute('aria-busy', isLoading ? 'true' : 'false');
     routePanel?.classList.toggle('is-calculating', isLoading);
@@ -1391,7 +1403,7 @@ if ('serviceWorker' in navigator) {
             });
         }
 
-        navigator.serviceWorker.register('service-worker.js?v=15').catch(() => {
+        navigator.serviceWorker.register('service-worker.js?v=16').catch(() => {
             // Если что-то пошло не так (например, http без TLS) — сайт всё равно
             // должен нормально работать, просто без офлайн-кэша.
         });

@@ -4,7 +4,7 @@
 
 <br>
 
-[![Live Demo](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=vercel&logoColor=white)]([https://smart-route-planner-wiwk.onrender.com)
+[![Live Demo](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=render&logoColor=white)](https://smart-route-planner-wiwk.onrender.com)
 [![CI](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/ci.yml)
 [![Production Smoke](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/production-smoke.yml?branch=main&style=for-the-badge&label=PROD%20SMOKE)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/production-smoke.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.1%20%E2%86%92%208.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](composer.json)
@@ -25,6 +25,12 @@
 
 ---
 
+## Route comparison
+
+![Smart Route Planner showing distance, travel time and two route alternatives](docs/assets/route-comparison.jpg)
+
+Captured from the running browser interface using the repository's test route data.
+
 ## Why this repository is interesting
 
 Smart Route Planner is not a map mock-up. It is a compact routing system that combines classical optimization, geospatial providers, a hand-built machine-learning stack, and production-oriented failure handling.
@@ -38,7 +44,7 @@ Smart Route Planner is not a map mock-up. It is a compact routing system that co
 | **Explainability** | probabilities, model comparison, local sensitivity, counterfactual-style analysis, Model Card and training visualizations |
 | **Geodata** | Nominatim, Open-Meteo, Overpass, MapLibre/OpenFreeMap |
 | **Reliability** | token-bucket rate limiting, graceful degradation, health checks, HTTP integration tests and production smoke |
-| **Delivery** | Vercel single-function front controller, Docker, GitHub Actions and Playwright product-flow tests |
+| **Delivery** | Render, Docker, GitHub Actions and Playwright product-flow tests |
 
 > The project documents its limitations instead of hiding them: synthetic training data, heuristic optimization, public providers and ephemeral serverless storage are treated as engineering constraints.
 
@@ -128,7 +134,7 @@ The separation is deliberate: optional providers can fail without taking down th
 
 ### Hosted application
 
-**https://smart-route-planner-vn.vercel.app/**
+**https://smart-route-planner-wiwk.onrender.com/**
 
 ### Local PHP
 

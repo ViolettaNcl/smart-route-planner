@@ -12,17 +12,17 @@
  * отдавать устаревший кэшированный ответ.
  */
 
-const CACHE_VERSION = 'srp-shell-v15';
+const CACHE_VERSION = 'srp-shell-v16';
 
 const SHELL_ASSETS = [
     './',
-    './assets/css/route.css?v=15',
-    './assets/js/app.js?v=15',
-    './assets/js/ui.js?v=15',
-    './assets/js/i18n.js?v=15',
-    './assets/js/route-editor.js?v=15',
-    './assets/js/product.js?v=15',
-    './assets/js/ml_boundary.js?v=15',
+    './assets/css/route.css?v=16',
+    './assets/js/app.js?v=16',
+    './assets/js/ui.js?v=16',
+    './assets/js/i18n.js?v=16',
+    './assets/js/route-editor.js?v=16',
+    './assets/js/product.js?v=16',
+    './assets/js/ml_boundary.js?v=16',
     './assets/icons/logo-source.svg',
     './assets/icons/favicon.ico',
     './assets/icons/favicon-16.png',
@@ -30,6 +30,7 @@ const SHELL_ASSETS = [
     './assets/icons/apple-touch-icon.png',
     './assets/icons/icon-192.png',
     './assets/icons/icon-512.png',
+    './assets/images/route-empty-state.png',
     './manifest.webmanifest',
 ];
 

@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /api/
 
-Sitemap: https://smart-route-planner-violettancls-projects.vercel.app/sitemap.xml
+Sitemap: https://smart-route-planner-wiwk.onrender.com/sitemap.xml

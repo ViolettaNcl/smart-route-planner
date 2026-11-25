@@ -3,14 +3,12 @@
 namespace App\Support;
 
 /**
- * Resolves the canonical production origin without tying releases to one
- * generated Vercel hostname. APP_PUBLIC_URL remains the explicit override;
- * Vercel's production-domain variable lets a later custom domain become the
- * canonical URL without another code change.
+ * Resolves the canonical origin from an explicit override, hosting metadata,
+ * or the public Render deployment.
  */
 final class PublicUrl
 {
-    private const DEFAULT_URL = 'https://smart-route-planner-violettancls-projects.vercel.app';
+    private const DEFAULT_URL = 'https://smart-route-planner-wiwk.onrender.com';
 
     public static function resolve(): string
     {

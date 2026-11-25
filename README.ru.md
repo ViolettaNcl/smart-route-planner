@@ -4,7 +4,7 @@
 
 <br>
 
-[![Демо](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=vercel&logoColor=white)](https://smart-route-planner-vn.vercel.app/)
+[![Демо](https://img.shields.io/badge/LIVE_DEMO-OPEN-111827?style=for-the-badge&logo=render&logoColor=white)](https://smart-route-planner-wiwk.onrender.com/)
 [![CI](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/ci.yml?branch=main&style=for-the-badge&label=CI)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/ci.yml)
 [![Production Smoke](https://img.shields.io/github/actions/workflow/status/ViolettaNcl/smart-route-planner/production-smoke.yml?branch=main&style=for-the-badge&label=PROD%20SMOKE)](https://github.com/ViolettaNcl/smart-route-planner/actions/workflows/production-smoke.yml)
 [![PHP](https://img.shields.io/badge/PHP-8.1%20%E2%86%92%208.3-777BB4?style=for-the-badge&logo=php&logoColor=white)](composer.json)
@@ -15,7 +15,7 @@
 
 **TSP-оптимизация · реальные дороги · ML с нуля · explainability · fallback-архитектура · production verification**
 
-[Открыть демо](https://smart-route-planner-vn.vercel.app/) ·
+[Открыть демо](https://smart-route-planner-wiwk.onrender.com/) ·
 [Архитектура](docs/architecture.md) ·
 [API](docs/api-reference.md) ·
 [ML](docs/neural_net.md) ·
@@ -124,7 +124,7 @@ flowchart LR
 
 ### Демо
 
-**https://smart-route-planner-vn.vercel.app/**
+**https://smart-route-planner-wiwk.onrender.com/**
 
 ### Локально
 

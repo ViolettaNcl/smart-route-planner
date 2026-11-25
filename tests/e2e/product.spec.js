@@ -192,6 +192,22 @@ test('structured editor calculates, compares and exports a route', async ({ page
     expect(download.suggestedFilename()).toBe('smart-route.geojson');
 });
 
+test('mobile demo shows distance, time and route selection reason', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await expect(page.locator('#panel-sheet-handle')).toHaveAttribute('aria-expanded', 'false');
+    await page.locator('#mobile-demo-route-button').click();
+    await expect(page.locator('#map-trip-summary')).toBeVisible();
+    await expect(page.locator('#map-summary-distance')).toContainText('382.4');
+    await expect(page.locator('#map-summary-time')).toContainText('3 ч 53 мин');
+    await expect(page.locator('#map-summary-reason')).toContainText('Основной вариант');
+    await expect(page.locator('#panel-sheet-handle')).toHaveAttribute('aria-expanded', 'false');
+
+    await page.locator('[data-route-option-id="route-2"]').click();
+    await expect(page.locator('#map-summary-distance')).toContainText('401.8');
+    await expect(page.locator('#map-summary-reason')).toContainText('альтернативный маршрут');
+});
+
 test('mobile editor opens full screen in one tap and closes to its tab', async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto('/');

@@ -2999,6 +2999,14 @@ textarea {
         display: none;
     }
 
+    .map-placeholder-visual:has(.map-placeholder-image) {
+        display: block;
+    }
+
+    .map-placeholder-image {
+        width: min(100%, 132px);
+    }
+
     .map-placeholder-card > strong {
         font-size: 21px;
     }
@@ -3263,6 +3271,10 @@ textarea {
     font-size: 10px;
     font-weight: 700;
     white-space: nowrap;
+}
+
+.editor-tool.mobile-demo-route {
+    display: none;
 }
 
 .editor-tool-accent {
@@ -5167,6 +5179,13 @@ textarea {
 
     .panel-highlights {
         display: none;
+    }
+
+    .editor-tool.mobile-demo-route {
+        display: block;
+        width: 100%;
+        min-height: 44px;
+        margin-bottom: 12px;
     }
 
     .route-editor-toolbar {

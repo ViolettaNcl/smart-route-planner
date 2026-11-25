@@ -59,8 +59,16 @@ assert.equal(health.capabilities?.model_training_snapshots, true);
 assert.equal(health.capabilities?.safe_feedback_queue, true);
 
 const home = await fetchChecked('/?smoke=' + Date.now());
-assert.match(home.body, /assets\/js\/product\.js\?v=15/);
+assert.match(home.body, /assets\/js\/product\.js\?v=16/);
 assert.match(home.body, /id="route-stop-list"/);
+assert.match(home.body, /id="mobile-demo-route-button"/);
+assert.match(home.body, /property="og:image"[^>]+route-planner-social\.png/);
+assert.match(home.body, /class="map-placeholder-image"[^>]+route-empty-state\.png/);
+
+for (const path of ['/assets/images/route-planner-social.png', '/assets/images/route-empty-state.png']) {
+    const image = await fetchChecked(path);
+    assert.match(image.response.headers.get('content-type') || '', /^image\/png\b/);
+}
 assert.match(home.body, /id="ml-prediction-title"/);
 assert.match(home.body, /id="ml-view-quality"/);
 assert.match(home.body, /id="ml-view-training"/);
@@ -80,7 +88,7 @@ const sitemap = await fetchChecked('/sitemap.xml');
 assert.match(sitemap.body, /<urlset/);
 
 const serviceWorker = await fetchChecked('/service-worker.js?smoke=' + Date.now());
-assert.match(serviceWorker.body, /srp-shell-v15/);
+assert.match(serviceWorker.body, /srp-shell-v16/);
 
 // ML smoke requests contain anonymous numeric features only — no route labels,
 // addresses or coordinates are sent to model diagnostics.

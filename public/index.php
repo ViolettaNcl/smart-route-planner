@@ -67,7 +67,7 @@ $socialImageUrl = $publicUrl . ($hasCover ? $coverPath : '/assets/icons/icon-512
     <link rel="preconnect" href="https://tiles.mapterhorn.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;600;700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet">
 
-    <link rel="stylesheet" href="assets/css/route.css?v=15">
+    <link rel="stylesheet" href="assets/css/route.css?v=16">
     <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8/hammer.min.js"></script>
@@ -116,6 +116,8 @@ $socialImageUrl = $publicUrl . ($hasCover ? $coverPath : '/assets/icons/icon-512
             </div>
         </div>
     </header>
+
+    <button type="button" id="mobile-demo-route-button" class="editor-tool editor-tool-accent mobile-demo-route" data-i18n="mobileDemoRoute">▶ Попробовать демо</button>
 
     <div class="layout">
         <aside class="panel sheet-peek" aria-labelledby="route-form-title" data-sheet-state="peek">
@@ -272,6 +274,7 @@ $socialImageUrl = $publicUrl . ($hasCover ? $coverPath : '/assets/icons/icon-512
                     <span data-i18n="mapSummaryMode">Режим</span>
                     <strong id="map-summary-mode">—</strong>
                 </div>
+                <small id="map-summary-reason"></small>
                 <small id="map-summary-source"></small>
             </div>
 
@@ -680,11 +683,11 @@ $socialImageUrl = $publicUrl . ($hasCover ? $coverPath : '/assets/icons/icon-512
 </div>
 
 <script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
-<script src="assets/js/i18n.js?v=15"></script>
-<script src="assets/js/route-editor.js?v=15"></script>
-<script src="assets/js/ml_boundary.js?v=15"></script>
-<script src="assets/js/app.js?v=15"></script>
-<script src="assets/js/ui.js?v=15"></script>
-<script src="assets/js/product.js?v=15"></script>
+<script src="assets/js/i18n.js?v=16"></script>
+<script src="assets/js/route-editor.js?v=16"></script>
+<script src="assets/js/ml_boundary.js?v=16"></script>
+<script src="assets/js/app.js?v=16"></script>
+<script src="assets/js/ui.js?v=16"></script>
+<script src="assets/js/product.js?v=16"></script>
 </body>
 </html>
