@@ -3,14 +3,12 @@
 namespace App\Support;
 
 /**
- * Resolves the canonical production origin without tying releases to one
- * generated Vercel hostname. APP_PUBLIC_URL remains the explicit override;
- * Vercel's production-domain variable lets a later custom domain become the
- * canonical URL without another code change.
+ * Resolves the canonical origin from an explicit override, hosting metadata,
+ * or the public Render deployment.
  */
 final class PublicUrl
 {
-    private const DEFAULT_URL = 'https://smart-route-planner-violettancls-projects.vercel.app';
+    private const DEFAULT_URL = 'https://smart-route-planner-wiwk.onrender.com';
 
     public static function resolve(): string
     {
@@ -20,14 +18,13 @@ final class PublicUrl
             return $normalized;
         }
 
-        $vercelProduction = getenv('VERCEL_PROJECT_PRODUCTION_URL');
-        $candidate = is_string($vercelProduction) ? trim($vercelProduction) : '';
-        if ($candidate !== '' && !str_contains($candidate, '://')) {
-            $candidate = 'https://' . $candidate;
+        $renderPublicUrl = getenv('RENDER_EXTERNAL_URL');
+        $normalized = self::normalize(is_string($renderPublicUrl) ? $renderPublicUrl : '');
+        if ($normalized !== null) {
+            return $normalized;
         }
-        $normalized = self::normalize($candidate);
 
-        return $normalized ?? self::DEFAULT_URL;
+        return self::DEFAULT_URL;
     }
 
     private static function normalize(string $candidate): ?string

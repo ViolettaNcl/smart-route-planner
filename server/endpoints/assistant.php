@@ -8,7 +8,7 @@ use App\AI\TripAssistantService;
 
 /**
  * AI-описание поездки: короткий человеческий комментарий к посчитанному
- * маршруту (см. App\AI\TripAssistantService — Vercel AI Gateway или прямой
+ * маршруту (см. App\AI\TripAssistantService — прямой
  * LLM-провайдер, иначе честный офлайн fallback по правилам).
  *
  * POST /api/assistant.php

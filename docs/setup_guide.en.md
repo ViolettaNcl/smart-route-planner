@@ -122,22 +122,18 @@ php bin/train_model.php
 
 Do this only when intentionally regenerating model artifacts.
 
-## Vercel model
+## Render
 
-`vercel.json`:
+Deploy as a Docker web service using the repository's Dockerfile. Apache
+serves `public/` and dispatches `/api/<name>.php` through `api/index.php`.
 
-- defines one PHP function at `api/index.php`;
-- serves static assets from `public/`;
-- maps `/api/<name>.php` to the front controller;
-- defines basic security/cache headers.
-
-Repository homepage: **https://smart-route-planner-vn.vercel.app/**
+Live demo: **https://smart-route-planner-wiwk.onrender.com/**
 
 ## Persistence
 
-On Docker/VPS, preserve `var/` and ensure runtime write access.
-
-On Vercel, do not treat the local filesystem as durable shared storage.
+Use a persistent disk or volume for file-backed state. On Render, set
+`APP_RUNTIME_DIR` to a writable path on that disk. For Docker Compose,
+the supplied configuration mounts `var/` from the host.
 
 ## Troubleshooting
 

@@ -11,7 +11,7 @@ Smart Route Planner — stateless-first веб-приложение на PHP с 
 1. основной route flow должен переживать отказ optional provider;
 2. fallback должен быть видимым;
 3. model feedback отделён от production inference;
-4. проект запускается на Vercel и в PHP/Docker;
+4. проект запускается на Render и в PHP/Docker;
 5. core flow не требует database.
 
 ## 2. Топология
@@ -19,7 +19,7 @@ Smart Route Planner — stateless-first веб-приложение на PHP с 
 ```mermaid
 flowchart TB
     Browser[Browser / PWA<br/>MapLibre + Vanilla JS]
-    Front[api/index.php<br/>Vercel front controller]
+    Front[api/index.php<br/>API front controller]
     Endpoints[server/endpoints/*]
     Core[RoutePlanner + domain services]
     ML[src/ML]
@@ -40,17 +40,13 @@ flowchart TB
 
 ## 3. Deployment boundary
 
-### Vercel
+### Render и Docker
 
-`vercel.json` направляет `/api/route.php` и другие публичные endpoint в `api/index.php?endpoint=<name>`.
+Образ `php:8.3-apache` раздаёт `public/` и передаёт API-запросы в
+`api/index.php`. Этот файл вызывает один из 15 разрешённых обработчиков
+из `server/endpoints/`.
 
-Front controller использует explicit allow-list из 15 endpoint и подключает implementation из `server/endpoints/`.
-
-### Docker / PHP hosting
-
-Docker использует `php:8.3-apache`, web root `public/`, необходимые PHP extensions и writable `var/`.
-
-На VPS/Docker `var/` можно хранить persistent. На Vercel filesystem нужно считать ephemeral.
+Для сохранения runtime-файлов между деплоями нужен постоянный диск или том.
 
 ## 4. Route flow
 

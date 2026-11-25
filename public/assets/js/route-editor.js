@@ -28,7 +28,7 @@
         const addButton = document.getElementById('add-stop-button');
         const reverseButton = document.getElementById('reverse-route-button');
         const mapPickButton = document.getElementById('map-pick-button');
-        const demoButton = document.getElementById('demo-route-button');
+
 
         if (!list || !legacyInput || !jsonInput) return null;
 
@@ -304,7 +304,15 @@
             sync();
         });
         mapPickButton?.addEventListener('click', () => activateMapPick());
-        demoButton?.addEventListener('click', loadDemo);
+        document.getElementById('demo-route-button')?.addEventListener('click', loadDemo);
+        document.getElementById('mobile-demo-route-button')?.addEventListener('click', () => {
+            const handle = document.getElementById('panel-sheet-handle');
+            if (handle?.getAttribute('aria-expanded') === 'false') {
+                handle.click();
+                handle.focus();
+            }
+            loadDemo();
+        });
 
         render();
 

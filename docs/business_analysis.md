@@ -49,7 +49,7 @@ Smart Route Planner — технически прозрачный route-planning
 | MLP/Softmax | transport suggestion | model + baseline |
 | Insights | transparency | explainability / evaluation |
 | PWA/share | low-friction reuse | client state |
-| Docker/Vercel | availability | portability |
+| Docker/Render | availability | portability |
 | CI/smoke | trust | release discipline |
 
 ## Reliability promise

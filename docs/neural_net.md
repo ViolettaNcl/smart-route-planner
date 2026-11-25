@@ -111,9 +111,8 @@ Web feedback не должен напрямую менять shared production w
 
 Возможные источники:
 
-1. Vercel AI Gateway;
-2. Anthropic/OpenAI;
-3. rule-based fallback.
+1. Anthropic/OpenAI;
+2. rule-based fallback.
 
 Источник результата должен быть видим клиенту.
 

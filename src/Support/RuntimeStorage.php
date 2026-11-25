@@ -4,8 +4,8 @@ namespace App\Support;
 
 /**
  * Writable runtime storage shared by cache, rate limiting, logs and demo
- * model state. Vercel Functions expose an ephemeral /tmp filesystem, while
- * local/Docker deployments keep using the repository's var/ directory.
+ * model state. Local/Docker deployments use the repository's var/ directory
+ * by default; a deployment can set APP_RUNTIME_DIR to another writable path.
  */
 final class RuntimeStorage
 {
@@ -20,7 +20,7 @@ final class RuntimeStorage
         $configured = trim((string) (getenv('APP_RUNTIME_DIR') ?: ''));
         if ($configured !== '') {
             $baseDir = rtrim($configured, '/\\');
-        } elseif (getenv('VERCEL') || getenv('AWS_LAMBDA_FUNCTION_NAME')) {
+        } elseif (getenv('AWS_LAMBDA_FUNCTION_NAME')) {
             $baseDir = rtrim(sys_get_temp_dir(), '/\\') . '/smart-route-planner';
         } else {
             $baseDir = dirname(__DIR__, 2) . '/var';

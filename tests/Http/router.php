@@ -3,10 +3,7 @@
 /**
  * Router for PHP's built-in server used by HTTP integration tests.
  *
- * Production on Vercel sends every /api/<endpoint>.php request through
- * api/index.php. The endpoint implementations themselves live in
- * server/endpoints/ so Vercel does not create 13+ separate functions on the
- * Hobby plan. This router mirrors that production routing locally.
+ * Mirrors Apache's production routing through api/index.php.
  */
 
 $projectRoot = dirname(__DIR__, 2);

@@ -11,7 +11,7 @@ Architectural priorities:
 1. keep the core route-planning flow available when optional providers fail;
 2. make fallbacks observable;
 3. isolate model feedback from production inference;
-4. support both Vercel and conventional PHP/Docker hosting;
+4. support Render, Docker and conventional PHP hosting;
 5. avoid a mandatory database for the primary product flow.
 
 ## 2. High-level topology
@@ -19,7 +19,7 @@ Architectural priorities:
 ```mermaid
 flowchart TB
     Browser[Browser / PWA<br/>MapLibre + Vanilla JS]
-    Front[api/index.php<br/>Vercel front controller]
+    Front[api/index.php<br/>API front controller]
     Endpoints[server/endpoints/*]
     Core[RoutePlanner + domain services]
     ML[src/ML]
@@ -40,19 +40,13 @@ flowchart TB
 
 ## 3. Deployment boundary
 
-### Vercel
+### Render and Docker
 
-`vercel.json` maps public paths such as `/api/route.php` to `api/index.php?endpoint=route`.
+The Docker image uses `php:8.3-apache`, serves files from `public/`, and
+dispatches API requests to `api/index.php`. The front controller uses an
+explicit list of 15 handlers in `server/endpoints/`.
 
-The front controller keeps an explicit allow-list of 15 endpoint names and loads the implementation from `server/endpoints/`.
-
-This keeps the deployment to one PHP Serverless Function while preserving a multi-endpoint public contract.
-
-### Docker / conventional PHP
-
-The Docker image uses `php:8.3-apache`, sets the web root to `public/`, enables required PHP extensions and gives the runtime write access to `var/`.
-
-On persistent Docker/VPS infrastructure, `var/` can survive restarts through the mounted volume. On Vercel it must be treated as ephemeral.
+Use a mounted disk or volume to keep runtime files across redeployments.
 
 ## 4. Route-planning sequence
 
@@ -200,6 +194,6 @@ See [SECURITY.md](../SECURITY.md).
 
 - File-backed state is simple but not horizontally shared.
 - Public providers do not offer guaranteed production SLA.
-- A single Vercel function centralizes dispatch.
+- A single PHP front controller centralizes dispatch.
 - Vanilla JS avoids a build pipeline but requires module discipline.
 - TSP heuristics prioritize speed over exact optimality.

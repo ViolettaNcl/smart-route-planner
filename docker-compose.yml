@@ -17,8 +17,7 @@ services:
       # rule-based fallback-режиме (см. src/AI/TripAssistantService.php).
       # Задаются через .env файл рядом (см. .env.example) или напрямую
       # через переменные окружения хоста при запуске docker compose.
-      - AI_GATEWAY_API_KEY=${AI_GATEWAY_API_KEY:-}
-      - AI_MODEL_GATEWAY=${AI_MODEL_GATEWAY:-openai/gpt-5-mini}
+      - APP_PUBLIC_URL=${APP_PUBLIC_URL:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - AI_MODEL_ANTHROPIC=${AI_MODEL_ANTHROPIC:-}

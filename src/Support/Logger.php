@@ -59,7 +59,7 @@ class Logger
 
         @file_put_contents($this->path, $line . PHP_EOL, FILE_APPEND | LOCK_EX);
 
-        // Vercel and most container platforms collect stderr. Keeping the
+        // Container platforms collect stderr. Keeping the
         // same structured event there makes failures searchable without a
         // writable or persistent filesystem. Context deliberately contains
         // counts and provider names, never user-entered addresses.

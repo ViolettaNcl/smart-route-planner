@@ -51,7 +51,7 @@ The project should not be positioned as:
 | MLP/Softmax | transport suggestion | implementation + baseline |
 | Model insights | transparency | explainability / evaluation |
 | PWA / sharing | low-friction reuse | client-side state design |
-| Docker/Vercel | availability | deployment portability |
+| Docker/Render | availability | deployment portability |
 | CI / smoke | trust | release discipline |
 
 ## Reliability promise

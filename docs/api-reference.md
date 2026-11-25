@@ -10,7 +10,7 @@
 /api/<endpoint>.php
 ```
 
-На Vercel `vercel.json` направляет их в `api/index.php`, а front controller вызывает `server/endpoints/<endpoint>.php` только для allow-listed endpoint.
+Apache направляет их в `api/index.php`, а front controller вызывает `server/endpoints/<endpoint>.php` только для allow-listed endpoint.
 
 ## Логические endpoint
 
@@ -56,13 +56,13 @@ Generic front-controller exception превращается в `INTERNAL_ERROR`;
 
 Token-bucket limiter использует file-backed state. Это не distributed limiter для горизонтального scaling.
 
-## Vercel routing
+## Apache routing
 
 ```text
 /api/route.php
         │
         ▼
-/api/index.php?endpoint=route
+api/index.php
         │
         ▼
 server/endpoints/route.php

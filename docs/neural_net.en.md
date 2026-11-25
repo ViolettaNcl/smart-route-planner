@@ -113,9 +113,8 @@ This is safer than naive online learning from arbitrary web feedback.
 
 The trip assistant can use:
 
-1. Vercel AI Gateway;
-2. direct Anthropic/OpenAI provider configuration;
-3. a rule-based offline fallback.
+1. direct Anthropic/OpenAI provider configuration;
+2. a rule-based offline fallback.
 
 The source of the generated result should remain visible to the client.
 
